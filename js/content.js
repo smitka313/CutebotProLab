@@ -230,7 +230,9 @@ const P = {
   sonar: pill('sonar sensor unit cm', 'cute'), read: pill('get a tracking sensor state value', 'cute'), track: pill('tracking sensor state is', 'cute'),
   chan: pill('channel 1 tracking sensor ●', 'cute'), group: pill('radio set group 1', 'radio'),
   btn: pill('on button A pressed', 'input'), send: pill('radio send number 0', 'radio'), rx: pill('on radio received receivedNumber', 'radio'),
-  rxn: pill('receivedNumber', 'radio'), sv: pill('serial write value "x" = 0', 'serial')
+  rxn: pill('receivedNumber', 'radio'), sv: pill('serial write value "x" = 0', 'serial'),
+  loud: pill('on loud sound', 'input'), level: pill('sound level', 'input'), thr: pill('set loud sound threshold to 150', 'input'),
+  servo: pill('set 180° servo S1 angle to 90 °', 'cute'), pause1: pill('pause (ms) 1000', 'basic'), fwd: pill('go forward 20 cm', 'cute')
 };
 L.LESSONS = [
   { id: 'hello', title: 'Hello, Cutebot Pro', level: 'Start here', map: 'open', steps: [
@@ -267,6 +269,20 @@ L.LESSONS = [
     { t: 'Program the robot', html: `Switch back to <b>Cutebot Pro micro:bit</b>. Put ${P.group} in ${P.on}. Add ${P.rx}. Inside it, use if blocks that check ${P.rxn}: 1 turns left, 2 turns right, 0 drives forward.`, check: (q) => q.has('robot', 'radio_on_number') && q.has('robot', 'radio_number', 'radio_on_number') && q.has('robot', 'radio_set_group', 'mb_on_start') },
     { t: 'Drive by radio', html: `Press Run, then open the <b>Remote</b> tab under the arena and press its A and B buttons. Both micro:bits must use the same radio group.`, check: (q) => q.ran && q.radio },
     { t: 'Challenge', html: `Try the <b>Remote driver</b> challenge: steer to the flag using only the remote.`, check: (q) => q.passed('remote') }
+  ] },
+  { id: 'mic', title: 'Listen with the microphone', level: 'V2X: sound', map: 'open', steps: [
+    { t: 'Hear a sound', html: `The micro:bit V2 has a microphone. Open <b>Input</b> and drag ${P.loud} onto the workspace. Put ${P.icon} inside it.`, check: (q) => q.has('robot', 'mb_show_icon', 'mb_on_sound') },
+    { t: 'Clap', html: `Press <b>Run</b>. Open the <b>micro:bit</b> tab under the arena and press <b>Make a loud sound</b>. The picture should appear.`, check: (q) => q.ran && q.loud },
+    { t: 'Ignore the room', html: `A real room is noisy. Put ${P.thr} in ${P.on}. Run again, then drag the <b>Room sound level</b> slider to 140: nothing should happen. A loud sound (210) still works.`, check: (q) => q.has('robot', 'mb_sound_threshold', 'mb_on_start') },
+    { t: 'Measure the room', html: `Put ${P.sv} in ${P.fv}, name it <b>sound</b>, and put ${P.level} in it. Run, move the slider, and watch the <b>Data</b> tab. Measuring the room first is how you pick a good threshold.`, check: (q) => q.has('robot', 'mb_sound_level', 'serial_value') },
+    { t: 'Mission', html: `You are ready for <b>Charlie: Refuge Pull-Over</b> in the Challenges tab. Its room has noise spikes up to 140.` }
+  ] },
+  { id: 'arms', title: 'Servo arms', level: 'V2X: mechanisms', map: 'room', steps: [
+    { t: 'Add the arms', html: `Open <b>Options</b> above the arena and tick <b>Servo arms on S1 and S2</b>. The robot gets a 10 cm arm on each side: S1 on the left, S2 on the right. They start folded back at 0°.`, check: (q) => q.arms },
+    { t: 'Swing one out', html: `Put ${P.servo} in ${P.on} and press Run. The left arm swings straight out to the side. 180° points it forward.`, check: (q) => q.ran && q.has('robot', 'cb_servo', 'mb_on_start') },
+    { t: 'Out and back', html: `Add ${P.pause1}, then another servo block that sets S1 back to <b>0</b>. Servos take time to move, so give them a pause.`, check: (q) => q.count('robot', 'cb_servo') >= 2 },
+    { t: 'Reach', html: `Swing both arms out, then ${P.fwd}. Arms can reach things the robot’s body can’t, like the RECO bots under a canopy or on a ledge.` },
+    { t: 'Missions', html: `The arms are always on in <b>Delta: Winter Supply Delivery</b> (sweep cubes) and <b>Echo: RECO Bot Neutralization</b> (knock over targets).` }
   ] },
   { id: 'data', title: 'Graph your sonar', level: 'Data', map: 'room', steps: [
     { t: 'Send a reading', html: `Put ${P.sv} in ${P.fv}. Change “x” to <b>distance</b> and put ${P.sonar} in the number slot.`, check: (q) => q.has('robot', 'cb_sonar', 'serial_value') },

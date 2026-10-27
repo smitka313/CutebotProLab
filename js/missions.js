@@ -15,7 +15,7 @@ const lightsOn = () => bot.lights.some(c => c !== '#000000');
 const isAmber = (hex) => { if (!hex || hex === '#000000') return false; const [r, g, b] = L.hexToRgb(hex); return r >= 180 && g >= 50 && g <= 225 && b <= 110; };
 // a fixed random sequence for field layouts (not the run's seed, so every run starts from the same field)
 const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
-const label = (c, x, y, text, size = 2.6, color = 'rgba(30,40,35,.75)') => { c.save(); c.font = `600 ${size}px Lexend, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = color; c.fillText(text, x, y); c.restore(); };
+const label = (c, x, y, text, size = 2.6, color = 'rgba(30,40,35,.75)') => { if (L.inFloor) L.mapLabels.push([x, y, text, size, color]); else L.drawLabel(c, x, y, text, size, color); };
 const outline = (c, x, y, w, h, color, lw = 0.6, dash) => { c.save(); c.strokeStyle = color; c.lineWidth = lw; if (dash) c.setLineDash(dash); c.strokeRect(x, y, w, h); c.restore(); };
 // what the student's robot program uses, for the bonus tiers (set by the app before each run)
 const uses = (...types) => types.some(t => L.runBlockTypes && L.runBlockTypes.has(t));
@@ -84,6 +84,8 @@ Object.assign(L.MAPS, {
   v2xGolf: { name: 'V2X Golf: 4 × 8 ft exhibition', w: 270, h: 180, grid: true, boxes: [], start: { x: 40, y: 90, a: Math.PI / 2 }, black: () => false,
     floor(c) { c.fillStyle = '#e7e9e6'; c.fillRect(0, 0, 270, 180); c.fillStyle = '#fbfbf8'; c.fillRect(13, 29, 244, 122); outline(c, 13, 29, 244, 122, '#8d9790', .6); label(c, 135, 25, '4 ft × 8 ft exhibition space: draw roads, add boxes, show your own idea', 2.6); } }
 });
+
+for (const k of ['v2xAlpha', 'v2xBravo', 'v2xCharlie', 'v2xDelta', 'v2xEcho', 'v2xFoxtrot', 'v2xGolf']) L.MAPS[k].inch = true;      // the parameters are in inches
 
 /* ---------------------------------------------------------------- Alpha: Roz's Depot Calibration */
 // The five maneuvers, any order. Distances in cm; turns in degrees, + = right.
@@ -289,7 +291,7 @@ const MISSIONS = [
     score: alphaScore,
     checklist: (st) => [...ALPHA.map(m => [m.label, !!(st.match && st.match.done[m.id]), 2]),
       ['Stop, then signal with lights, the screen or a sound', st.signal, 2],
-      [`Done within 60 s${st.endT > 60 ? ` (−${overTime(st.endT, 60)})` : ''}`, st.endT === undefined ? null : st.endT <= 60, 0]],
+      [`Done within 60 s${st.endT > 60 ? ` (−${overTime(st.endT, 60)})` : ''}`, st.endT !== undefined ? st.endT <= 60 : (st.t || 0) > 60 ? 'x' : null, 0]],
     bonus: () => uses(...ENCODER_BLOCKS) ? 'Advanced tier: encoders, compass or accelerometer (+2 possible)' : uses('variables_set') ? 'Intermediate tier: variables for distances (+1 possible)' : 'Basic tier: timed moves',
     marks: [[150, 150, 'Start here, facing up']],
     progress: (st) => `Segments: ${alphaSegments(st).map(s => s.k === 's' ? `${s.v > 0 ? '↑' : '↓'}${Math.abs(s.v / IN).toFixed(1)} in` : `${s.v > 0 ? '↻' : '↺'}${Math.abs(s.v).toFixed(0)}°`).join(' ') || 'none yet'}`,
@@ -332,7 +334,7 @@ const MISSIONS = [
     },
     score: (st) => Math.max(0, 10 - 2 * ['open', 'pace', 'amber', 'stop', 'back', 'beep'].filter(k => !st.ind[k] || (k === 'stop' && st.contact)).length),
     checklist: (st) => [['Open path (over 12 in): full speed', !!st.ind.open, 2], ['Pacing zone (6–12 in): about half speed', !!st.ind.pace, 2], ['Pacing zone: amber headlights', !!st.ind.amber, 2],
-      [st.contact ? 'Touched the lead box!' : 'Emergency (under 6 in): stops before contact', !!st.ind.stop && !st.contact, 2], ['Emergency: backs up about 4 in', !!st.ind.back, 2], ['Emergency: warning beep', !!st.ind.beep, 2]],
+      [st.contact ? 'Touched the lead box!' : 'Emergency (under 6 in): stops before contact', st.contact ? 'x' : !!st.ind.stop, 2], ['Emergency: backs up about 4 in', !!st.ind.back, 2], ['Emergency: warning beep', !!st.ind.beep, 2]],
     bonus: () => 'Advanced tier: a proportional loop that sets speed from the distance (+2 possible)',
     drawTop(c, s, st) { if (!st.lead) return; const g = bravoGap(st); label(c, bot.x, bot.y - 12, `${(Math.max(0, g) / IN).toFixed(1)} in`, 2.6, g > BR.open ? '#0b8f2f' : g > BR.pace ? '#b07800' : '#d33a12'); },
     draw(c, s, st) { if (!st.lead) return; const x = st.lead.x; c.fillStyle = 'rgba(176,120,0,.12)'; c.fillRect(x - BR.open, 62, BR.open - BR.pace, 36); c.fillStyle = 'rgba(211,58,18,.12)'; c.fillRect(x - BR.pace, 62, BR.pace, 36); },
@@ -367,7 +369,7 @@ const MISSIONS = [
       st.toneFlag = false;
     },
     score: (st) => Math.max(0, 10 - 2 * ['drive', 'signal', 'turn', 'pause', 'siren', 'finish'].filter(k => !st.ind[k]).length - (st.leftEarly ? 2 : 0) - overTime(st.endT ?? 90, 60)),
-    checklist: (st) => [['Drive forward along the corridor', !!st.ind.drive, 2], [st.leftEarly ? 'Pulled over before the siren!' : 'No pull-over before the siren', !st.leftEarly, 2], ['Signal the turn after the siren', !!st.ind.signal, 2],
+    checklist: (st) => [['Drive forward along the corridor', !!st.ind.drive, 2], [st.leftEarly ? 'Pulled over before the siren!' : 'No pull-over before the siren', st.leftEarly ? 'x' : !!st.cueAt, 2], ['Signal the turn after the siren', !!st.ind.signal, 2],
       ['Turn about 45° right into the refuge zone', !!st.ind.turn, 2], ['Pause 5 s in the zone', !!st.ind.pause, 2], ['Siren animation while paused', !!st.ind.siren, 2], ['Return and cross the finish within 60 s', !!st.ind.finish && (st.endT ?? 99) <= 60, 2]],
     bonus: () => uses('mb_sound_level') ? 'Advanced tier: reads the sound level, e.g. to calibrate the room on startup (+2 possible)' : 'Basic tier: “on loud sound”',
     drawTop(c, s, st) { const lv = L.soundLevel(L.devices.robot); c.fillStyle = 'rgba(20,25,22,.75)'; c.fillRect(4, 4, 34, 6); c.fillStyle = lv > 150 ? '#d33a12' : lv > 128 ? '#e9a400' : '#2ea84f'; c.fillRect(5, 5, 32 * lv / 255, 4); label(c, 21, 13, `sound ${lv}`, 2.4); },
@@ -406,7 +408,7 @@ const MISSIONS = [
     },
     score: (st) => echoScore(st).total,
     checklist: (st) => [['Line: start to RECO 1', st.maxS >= ECHO.RECOS[0].s, 3], ['Line: RECO 1 to RECO 2', st.maxS >= ECHO.RECOS[1].s, 5], ['Line: RECO 2 to RECO 3', st.maxS >= ECHO.RECOS[2].s, 7], ['Line: past RECO 3 to the finish', !!st.finished, 10],
-      ...ECHO.RECOS.map(r => [`${r.label} knocked over`, !!st.hit[r.id], r.pts])],
+      ...ECHO.RECOS.map(r => [`${r.label} knocked over`, !!st.hit[r.id] || (st.maxS > r.s + 25 && !st.hit[r.id] ? 'x' : false), r.pts])],
     bonus: () => 'Extra: time bonus (10, 8, 6, 4, 2) for the five fastest teams that clear every RECO',
     drawTop(c, s, st) {
       for (const r of ECHO.RECOS) {
@@ -437,7 +439,7 @@ const MISSIONS = [
     },
     score: foxScore,
     checklist: (st) => [...FOX.checks.map((x, i) => [`Section ${i + 1} (${i * 2}–${i * 2 + 2} ft)`, st.best >= x ? true : st.best >= FOX.halves[i] ? null : false, 15]),
-      ['Egg delivered without a drop', !!st.delivered, 10]],
+      [st.dropped ? 'The egg dropped!' : st.outs ? 'Crossed the boundary line (−2)' : 'Egg delivered without a drop', st.dropped || st.outs ? 'x' : !!st.delivered, 10]],
     bonus: () => 'Extra: dynamic speed control and active suspension designs can earn up to 5 bonus points',
     drawTop(c, s, st) {
       if (!st.egg) return;

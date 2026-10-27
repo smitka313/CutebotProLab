@@ -320,7 +320,7 @@ function checkSound() {
   for (const d of Object.values(devices)) {
     if (!d.active || !(d.handlers['sound:loud'] || d.handlers['sound:quiet'])) continue;
     const v = L.soundLevel(d);
-    if (v > d.loudT && !d.soundHi) { d.soundHi = true; fire(d, 'sound', 'loud'); } else if (v <= d.loudT - 8) d.soundHi = false;
+    if (v > d.loudT && !d.soundHi) { d.soundHi = true; fire(d, 'sound', 'loud'); L.emit('soundEvent', d, 'loud'); } else if (v <= d.loudT - 8) d.soundHi = false;
     if (v < d.quietT && !d.soundLo) { d.soundLo = true; fire(d, 'sound', 'quiet'); } else if (v >= d.quietT + 8) d.soundLo = false;
   }
 }

@@ -106,8 +106,16 @@ L.buildFloor = function () {
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.fillStyle = '#ffffff'; c.fillRect(0, 0, floorCanvas.width, floorCanvas.height);
   c.setTransform(PXCM, 0, 0, PXCM, 0, 0);
-  MAPS[L.arena.map].floor(c);
+  L.mapLabels = []; L.inFloor = true;
+  try { MAPS[L.arena.map].floor(c); } finally { L.inFloor = false; }
   for (const s of ed().strokes) strokePath(c, s);
+};
+/* Text on the field is drawn each frame, never baked into the floor picture,
+   so it stays readable on the big V2X fields: at least about 11 screen pixels tall. */
+L.mapLabels = [];
+L.drawLabel = function (c, x, y, text, size = 2.6, color = 'rgba(30,40,35,.75)') {
+  const k = c.getTransform().a || 1, fs = Math.max(size, 11 * (window.devicePixelRatio || 1) / k);
+  c.save(); c.font = `600 ${fs}px Lexend, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = color; c.fillText(text, x, y); c.restore();
 };
 const bboxes = new WeakMap();
 function strokeBox(s) {
@@ -246,6 +254,9 @@ L.physics = function (dt) {
 };
 L.trail = [];
 L.trailOn = true;
+L.inchGrid = false;
+L.useInches = () => L.inchGrid || !!MAPS[L.arena.map].inch;
+L.gridStep = () => L.useInches() ? 6 * 2.54 : 10;
 
 /* ---------- servo arms (mission attachments) ----------
    When a mission turns arms on, servo S1 drives a 10 cm arm on the robot's left side and S2 one on its right side.
@@ -303,7 +314,9 @@ function drawArena() {
   c.imageSmoothingEnabled = true;
   c.drawImage(floorCanvas, 0, 0, W, H);
   c.strokeStyle = MAPS[L.arena.map].grid ? 'rgba(40,80,60,.16)' : 'rgba(40,80,60,.07)'; c.lineWidth = 1 / s;
-  c.beginPath(); for (let x = 10; x < W; x += 10) { c.moveTo(x, 0); c.lineTo(x, H); } for (let y = 10; y < H; y += 10) { c.moveTo(0, y); c.lineTo(W, y); } c.stroke();
+  const g = L.gridStep();
+  c.beginPath(); for (let x = g; x < W; x += g) { c.moveTo(x, 0); c.lineTo(x, H); } for (let y = g; y < H; y += g) { c.moveTo(0, y); c.lineTo(W, y); } c.stroke();
+  for (const l of L.mapLabels) L.drawLabel(c, ...l);
   if (L.drawOverlay) L.drawOverlay(c, s);
   for (const b of L.boxes()) {
     c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(b.x + .8, b.y + .8, b.w, b.h);

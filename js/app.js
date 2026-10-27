@@ -6,7 +6,7 @@ const { $, esc, bot, RT, devices } = L;
 
 let ws = null;
 const proj = { active: 'robot', programs: { robot: null, remote: null } };
-const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false, goalMin: false };
+const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false, goalMin: false, inchGrid: false, arms: false };
 const UISTORE = 'cutebotpro-lab-ui', PROOFS = 'cutebotpro-lab-proofs', LESSONSTORE = 'cutebotpro-lab-lessons', STUDENT = 'cutebotpro-lab-student', TURNED = 'cutebotpro-lab-turnedin';
 const PINDEX = 'cutebotpro-lab-projects', pkey = (id) => 'cutebotpro-lab-project-' + id;
 const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
@@ -279,7 +279,7 @@ function run() {
 function resetAll(keepChallenge) {
   L.stopAll();
   Object.values(devices).forEach(d => d.display.fill(0));
-  bot.lights = ['#000000', '#000000']; bot.servo = [90, 90, 90, 90]; bot.servoT = [90, 90, 90, 90]; bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
+  bot.lights = ['#000000', '#000000']; resetServos(); bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
   L.placeRobot();
   hideError();
   if (challenge && !keepChallenge) { crun = L.makeChallengeRun(challenge); if (challenge.setup) challenge.setup(crun.st); replayOf = null; renderChallengeStrip(true); }
@@ -322,14 +322,14 @@ L.on('locked', () => toast('The robot can’t be moved by hand during a challeng
 
 /* ---------- map + arena tools ---------- */
 function setMap(m, quiet) {
-  L.arena.map = m; $('mapSel').value = m; L.buildFloor();
+  L.arena.map = m; $('mapSel').value = m; L.buildFloor(); setTool(L.tool);
   if (!quiet) resetAll();
   updateArenaButtons();
 }
 function setTool(t) {
   L.tool = t;
   document.querySelectorAll('#toolSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t));
-  const hints = { move: 'Drag the robot to move it · 1 square = 10 cm', draw: 'Drag to draw black tape on the floor', erase: 'Drag to erase tape', box: 'Click to add a 10 cm box · click a box to remove it' };
+  const hints = { move: `Drag the robot to move it · 1 square = ${L.useInches() ? '6 in' : '10 cm'}`, draw: 'Drag to draw black tape on the floor', erase: 'Drag to erase tape', box: 'Click to add a 10 cm box · click a box to remove it' };
   $('arenaHint').textContent = hints[t];
   $('arena').dataset.tool = t;
 }
@@ -389,7 +389,7 @@ function drawBoards() {
 function drawReadout() {
   const bump = bot.clock - bot.bumpT < 400;
   const hd = Math.round(((bot.a * 180 / Math.PI) % 360 + 360) % 360);
-  let h = `<span class="chip">Sonar <b>${Math.floor(bot.sonar)} cm</b></span>` +
+  let h = `<span class="chip">Sonar <b>${Math.floor(bot.sonar)} cm</b>${L.useInches() ? ` · <b>${(bot.sonar / 2.54).toFixed(1)} in</b>` : ''}</span>` +
     `<span class="chip">Line sensors 1–4 ${[0, 1, 2, 3].map(ch => `<span class="dot ${(bot.track >> ch) & 1 ? 'on' : ''}"></span>`).join(' ')}</span>` +
     (bot.pid ? `<span class="chip">PID <b>${Math.round(bot.pidL)}</b> / <b>${Math.round(bot.pidR)} cm/s</b></span>` : `<span class="chip">Wheels <b>${Math.round(bot.cmdL)}%</b> / <b>${Math.round(bot.cmdR)}%</b></span>`) +
     `<span class="chip">Encoders L <b>${Math.trunc(bot.wl * 360 / (Math.PI * L.WHEEL_D))}°</b> R <b>${Math.trunc(bot.wr * 360 / (Math.PI * L.WHEEL_D))}°</b></span>` +
@@ -494,10 +494,11 @@ function updateTurnBadge() {
 }
 function roundRectPath(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 function tag(c, x, y, text, color = 'rgba(11,110,40,.92)') {
-  c.save(); c.font = '600 2.4px Lexend, system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  const w = c.measureText(text).width + 2.4, h = 3.6;
+  const fs = Math.max(2.4, 11 * (window.devicePixelRatio || 1) / (c.getTransform().a || 1));      // readable on the big fields too
+  c.save(); c.font = `600 ${fs}px Lexend, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const w = c.measureText(text).width + fs, h = fs * 1.5;
   x = Math.max(w / 2 + .5, Math.min(L.W - w / 2 - .5, x)); y = Math.max(h / 2 + .5, Math.min(L.H - h / 2 - .5, y));
-  c.fillStyle = color; roundRectPath(c, x - w / 2, y - h / 2, w, h, 1.4); c.fill();
+  c.fillStyle = color; roundRectPath(c, x - w / 2, y - h / 2, w, h, h * .38); c.fill();
   c.fillStyle = '#fff'; c.fillText(text, x, y + .1); c.restore();
 }
 L.drawOverlay = (c, s) => {
@@ -515,7 +516,9 @@ L.drawOverlay = (c, s) => {
 };
 const hintsShown = {};      // challenge id -> how many hints the student has opened
 // mission props (a moving lead box, servo arms, room noise) exist only while their mission is open
-function clearMission() { L.dyn = []; L.armsOn = false; L.missionNoise = null; L.soundBurst = null; }
+function clearMission() { L.dyn = []; L.armsOn = !!ui.arms; L.missionNoise = null; L.soundBurst = null; }
+// servo arms (when shown) start folded back at 0°; without arms the servo horns rest at 90°
+function resetServos() { const a = L.armsOn ? 0 : 90; bot.servo = [a, a, 90, 90]; bot.servoT = [a, a, 90, 90]; }
 L.drawTop = (c, s) => { if (challenge && crun && challenge.drawTop) challenge.drawTop(c, s, crun.st); };
 const resultText = (ch, p) => ch.scored ? `${p.score} pts` : `${p.t} s`;
 function enterArena(ch) {
@@ -524,11 +527,15 @@ function enterArena(ch) {
   setMap(ch.map, true);
   L.stopAll();
   Object.values(devices).forEach(d => d.display.fill(0));
-  bot.lights = ['#000000', '#000000']; bot.servo = [90, 90, 90, 90]; bot.servoT = [90, 90, 90, 90]; bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
+  bot.lights = ['#000000', '#000000']; resetServos(); bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
   L.placeRobot();
+  // the big V2X fields start zoomed in, following the robot, so it isn't tiny
+  if (L.W > 150) { Object.assign(L.view, { zoom: 2.25, follow: true, cx: bot.x, cy: bot.y }); L.emit('change', 'view'); }
 }
+let freeMap = null;      // the arena in use before a challenge, to go back to afterwards
 function armChallenge(id) {
   const ch = L.CHALLENGES.find(c => c.id === id); if (!ch) return;
+  if (!challenge && !L.MISSION_MAPS.has(L.arena.map)) freeMap = L.arena.map;
   challenge = ch; crun = L.makeChallengeRun(ch); replayOf = null;
   setTool('move'); document.querySelectorAll('#toolSeg button').forEach(b => b.disabled = b.dataset.tool !== 'move'); $('btnSetStart').disabled = true;
   enterArena(ch); hideError();
@@ -540,8 +547,10 @@ function exitChallenge(quiet) {
   L.stopAll();
   challenge = null; crun = null; replayOf = null; L.pristine = false; L.startOverride = null; L.activeRun = null; clearMission();
   document.querySelectorAll('#toolSeg button').forEach(b => b.disabled = false); $('btnSetStart').disabled = false;
-  $('challengeStrip').hidden = true; $('goalCard').hidden = true;
-  L.buildFloor(); if (!quiet) resetAll();
+  $('challengeStrip').hidden = true; $('goalCard').hidden = true; $('arenaHint').hidden = false;
+  if (L.MISSION_MAPS.has(L.arena.map)) setMap(freeMap || 'open', true);      // a mission field without its mission is just an empty mat
+  else L.buildFloor();
+  if (!quiet) resetAll();
   renderChallengeList(); updateArenaButtons();
 }
 function finishChallenge() {
@@ -576,20 +585,25 @@ function showPassed({ ch, t, better, best, result, real }) {
     ${better ? 'Your proof is saved in this browser.' : `Your best is still ${esc(best)}.`} Turn in your work so your teacher can check it.</div></div>`, actions);
 }
 let stripKey = '';
+function warnBeep() { const a = L.audio(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.value = 0.05; o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 0.18); }
 function renderChallengeStrip(force) {
   const el = $('challengeStrip'), card = $('goalCard');
-  if (!challenge || !crun) { el.hidden = true; card.hidden = true; return; }
+  if (!challenge || !crun) { el.hidden = true; card.hidden = true; $('arenaHint').hidden = false; return; }
   el.hidden = false;
   const ch = challenge, s = crun.state;
   const badge = s === 'pass' ? '<span class="badge pass">Passed</span>' : s === 'fail' ? '<span class="badge fail">Not yet</span>' : s === 'running' ? '<span class="badge run">Running</span>' : s === 'stopped' ? '<span class="badge">Stopped</span>' : '<span class="badge">Ready</span>';
   const prog = ch.progress ? ch.progress(crun.st) : '';
   const nh = hintsShown[ch.id] || 0, hints = ch.hints || [];
   const check = ch.checklist ? ch.checklist(crun.st) : null, score = ch.scored ? (crun.score ?? ch.score(crun.st)) : null;
+  // the last 10 seconds: the clock turns red and beeps once, like a heat clock
+  const warn = s === 'running' && ch.limit - crun.t <= 10;
+  if (warn && !crun.warned) { crun.warned = true; if (ui.sound && !RT.fast && !verifying) warnBeep(); }
+  $('arenaHint').hidden = true;
   const key = [s, crun.t.toFixed(1), prog, crun.msg, !!replayOf, nh, JSON.stringify(check), score].join('|');
   if (key === stripKey && !force) return; stripKey = key;
-  el.innerHTML = `<div class="cs-top"><b>${replayOf ? 'Replay: ' + esc(replayOf) + ' · ' : ''}${esc(ch.title)}</b>${badge}${L.real.active ? '<span class="badge run">Real-world</span>' : ''}<span class="cs-time">${crun.t.toFixed(1)} s / ${ch.limit} s</span><button class="btn small" id="btnExitCh">${replayOf ? 'Close replay' : 'Exit challenge'}</button></div>
+  el.innerHTML = `<div class="cs-top"><b>${replayOf ? 'Replay: ' + esc(replayOf) + ' · ' : ''}${esc(ch.title)}</b>${badge}${L.real.active ? '<span class="badge run">Real-world</span>' : ''}<span class="cs-time${warn ? ' warn' : ''}">${crun.t.toFixed(1)} s / ${ch.limit} s</span><button class="btn small" id="btnExitCh">${replayOf ? 'Close replay' : 'Exit challenge'}</button></div>
     ${ch.scored ? `<div class="cs-score"><b>${score}</b> / ${ch.max} practice points${ch.due ? ` · ${esc(ch.due)}` : ''}</div>` : ''}
-    ${check ? `<ul class="cs-check">${check.map(([t, ok, pts]) => `<li class="${ok === true ? 'ok' : ok === false && s !== 'ready' && s !== 'running' ? 'no' : ''}"><span aria-hidden="true">${ok === true ? '✓' : ok === false && s !== 'ready' && s !== 'running' ? '✗' : '○'}</span>${esc(t)}${pts ? ` <small>${pts} pts</small>` : ''}</li>`).join('')}</ul>` : ''}
+    ${check ? `<ul class="cs-check">${check.map(([t, ok, pts]) => { const no = ok === 'x' || (ok === false && s !== 'ready' && s !== 'running'); return `<li class="${ok === true ? 'ok' : no ? 'no' : ''}"><span aria-hidden="true">${ok === true ? '✓' : no ? '✗' : '○'}</span>${esc(t)}${pts ? ` <small>${pts} pts</small>` : ''}</li>`; }).join('')}</ul>` : ''}
     ${ch.bonus && s !== 'running' ? `<div class="cs-goal">Bonus: ${esc(ch.bonus())}. Judges award bonus points.</div>` : ''}
     <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>
     ${!replayOf && hints.length && s !== 'running' ? `<div class="cs-hints">${hints.slice(0, nh).map((h, i) => `<p><b>Hint ${i + 1}:</b> ${esc(h)}</p>`).join('')}${nh < hints.length ? `<button class="btn small" id="btnHint">${nh ? 'Another hint' : 'Need a hint?'}</button>` : ''}</div>` : ''}`;
@@ -730,14 +744,16 @@ function dupMap() {
   return out;
 }
 const CELL = { ok: ['ok', '✓'], differs: ['warn', '!'], fail: ['bad', '✗'], pending: ['pend', '…'] };
+let tView = 'challenges';      // the teacher table shows challenges or V2X missions; the CSV has both
 function renderTeacher() {
   const body = $('tBody'); if (!body) return;
   if (!subs.length) { body.innerHTML = `<p class="note big">Add the turn-in files your students sent you. You can select many at once or drag them onto this panel. Each proof is replayed from scratch with the student’s own program, so a time only shows as checked if that program really passes.</p>`; return; }
   const dups = dupMap();
-  const head = `<tr><th>Student</th><th>Class</th><th>Project</th><th>Turned in</th>${L.CHALLENGES.map(c => `<th title="${esc(c.goal)}">${esc(c.title)}</th>`).join('')}<th></th></tr>`;
+  const cols = L.CHALLENGES.filter(c => (c.group === 'v2x') === (tView === 'v2x'));
+  const head = `<tr><th>Student</th><th>Class</th><th>Project</th><th>Turned in</th>${cols.map(c => `<th title="${esc(c.goal)}">${esc(c.title)}</th>`).join('')}<th></th></tr>`;
   const rows = subs.map(s => {
     const d = s.data, st = d.student || {};
-    const cells = L.CHALLENGES.map(c => {
+    const cells = cols.map(c => {
       const r = s.results[c.id]; if (!r) return '<td class="tc none">–</td>';
       const p = d.proofs.find(x => x && x.c === c.id), [cls, mark] = CELL[r.status] || CELL.fail;
       const label = r.status === 'ok' || r.status === 'differs' ? (c.scored ? `${r.score} pts` : `${r.t} s`) : r.status === 'pending' ? '' : 'failed';
@@ -748,8 +764,10 @@ function renderTeacher() {
       <td class="when">${d.at ? esc(new Date(d.at).toLocaleString()) : ''}</td>${cells}
       <td class="tact"><button class="btn small" data-code="${s.id}">View code</button><button class="btn small" data-open="${s.id}">Open project</button><button class="btn small" data-rm="${s.id}" aria-label="Remove ${esc(st.name || s.file)}">Remove</button></td></tr>`;
   }).join('');
-  body.innerHTML = `<div class="ttable-wrap"><table class="ttable"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+  body.innerHTML = `<div class="tseg" role="group" aria-label="Which results"><button data-tv="challenges" aria-pressed="${tView !== 'v2x'}">Challenges</button><button data-tv="v2x" aria-pressed="${tView === 'v2x'}">V2X missions</button></div>
+    <div class="ttable-wrap"><table class="ttable"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
     <p class="note">✓ checked: the replay passed in the same time · ! passed, but the time differs · ✗ the replay did not pass · <i>real</i> = passed in real-world mode. Click a result to watch the replay.</p>`;
+  body.querySelectorAll('[data-tv]').forEach(b => b.onclick = () => { tView = b.dataset.tv; renderTeacher(); });
   body.querySelectorAll('.tcell').forEach(b => b.onclick = () => openProofDetail(b.dataset.sub, b.dataset.c));
   body.querySelectorAll('[data-code]').forEach(b => b.onclick = () => showSubCode(subs.find(s => s.id === b.dataset.code)));
   body.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openSubProject(subs.find(s => s.id === b.dataset.open)));
@@ -875,6 +893,40 @@ function openSend() {
   if (remote) { $('tsRemote').value = remote; $('cpRemote').onclick = () => copyText(remote, $('tsRemote')); $('dlRemote').onclick = () => saveFile(safeName($('projName').value) + ' - remote.txt', remote); }
 }
 
+/* ---------- code for judges ----------
+   V2X teams submit their code as a PDF with each video (rule 15.14), judged on clarity and comments.
+   This lays the program out as a clean, printable sheet. Printing works on the lab's own website. */
+function openJudgeSheet() {
+  serializeActive();
+  const st = readJSON(STUDENT, { name: '', period: '' });
+  const missions = L.CHALLENGES.filter(c => c.group === 'v2x');
+  modal('Code for judges', `<p class="note big" style="padding:0">Lays out your program as text for your V2X submission. Judges score how clear your code is, so add comments to your blocks first: right-click a block, choose <b>Add Comment</b>, and say what it does. Comments show in the code as <code>//</code> lines.</p>
+    <div class="ti-form"><label>Team name<input id="jsTeam" value="${esc(st.team || '')}" placeholder="Roseville Rovers"></label><label>Team number<input id="jsNum" value="${esc(st.teamNo || '')}" placeholder="V2601"></label></div>
+    <div class="ti-form"><label>Mission<select id="jsMission"><option value="">(not a mission)</option>${missions.map(m => `<option value="${m.id}" ${challenge && challenge.id === m.id ? 'selected' : ''}>${esc(m.title)}</option>`).join('')}</select></label><label>Team members<input id="jsMembers" value="${esc(st.members || '')}" placeholder="First and last names"></label></div>
+    <p class="note">If nothing happens when you print, use <b>Download .txt</b> and print it from Notepad, or paste the code into MakeCode.</p>`,
+    [['Cancel', () => {}], ['Download .txt', () => { const t = judgeText(); saveFile(`${safeName($('jsTeam').value || 'team')} - ${safeName(($('jsMission').selectedOptions[0] || {}).text || 'code')}.txt`, t.text); return false; }],
+     ['Print or save as PDF', () => { judgeText(); printJudgeSheet(); return false; }, true]], true);
+}
+function judgeText() {
+  const st = readJSON(STUDENT, { name: '', period: '' });
+  Object.assign(st, { team: $('jsTeam').value.trim(), teamNo: $('jsNum').value.trim(), members: $('jsMembers').value.trim() }); writeJSON(STUDENT, st);
+  const mission = ($('jsMission').value && $('jsMission').selectedOptions[0].text) || '';
+  const head = [`Team: ${st.team || '(team name)'}${st.teamNo ? ` (${st.teamNo})` : ''}`, st.members ? `Members: ${st.members}` : '', mission ? `Mission: ${mission}` : '',
+    `Project: ${$('projName').value}`, `Date: ${new Date().toLocaleDateString()}`, 'Language: MakeCode JavaScript for micro:bit with the Cutebot Pro extension (pxt-cutebot-pro)'].filter(Boolean);
+  const parts = [['Cutebot Pro micro:bit', genTS('robot')]];
+  if (hasCode('remote')) parts.push(['Remote micro:bit', genTS('remote')]);
+  const text = head.map(l => '// ' + l).join('\n') + '\n\n' + parts.map(([t, c]) => `// ===== ${t} =====\n${c}`).join('\n');
+  lastJudge = { head, parts };
+  return { text };
+}
+let lastJudge = null;
+function printJudgeSheet() {
+  const { head, parts } = lastJudge;
+  $('printSheet').innerHTML = `<h1>${esc(head[0])}</h1><p>${head.slice(1).map(esc).join('<br>')}</p>` +
+    parts.map(([t, c]) => `<h2>${esc(t)}</h2><pre>${highlight(c)}</pre>`).join('');
+  try { window.print(); } catch (e) { toast('Printing is blocked here. Use Download .txt instead.'); }
+}
+
 /* ---------- files ---------- */
 function openFileModal() {
   const text = JSON.stringify(projectData());
@@ -931,7 +983,8 @@ function openExample(key) {
 /* ---------- lessons ---------- */
 const lessonState = readJSON(LESSONSTORE, {});
 let lesson = null;
-const lessonFlags = { ran: false, odo0: 0, radio: false, serial: false, passed: new Set(Object.keys(proofs)) };
+const lessonFlags = { ran: false, odo0: 0, radio: false, serial: false, loud: false, passed: new Set(Object.keys(proofs)) };
+L.on('soundEvent', (dev) => { if (!verifying && dev.id === 'robot') { lessonFlags.loud = true; lessonCheckSoon(); } });
 function blocksOf(devId) { return (devId === proj.active ? ws : wsFor(devId)).getAllBlocks(false).filter(b => b.isEnabled() && !b.isShadow()); }
 function inside(b, type) { if (!type) return true; let p = b.getParent(); while (p) { if (p.type === type) return true; p = p.getParent(); } return false; }
 const Q = {
@@ -940,7 +993,8 @@ const Q = {
   count: (dev, type, within) => Q.find(dev, type, within).length,
   passed: (id) => lessonFlags.passed.has(id),
   get ran() { return lessonFlags.ran; }, get moved() { return bot.odo - lessonFlags.odo0 > 8 || bot.odo > 8; },
-  get radio() { return lessonFlags.radio; }, get serial() { return lessonFlags.serial; }, get activeDev() { return proj.active; }
+  get radio() { return lessonFlags.radio; }, get serial() { return lessonFlags.serial; }, get activeDev() { return proj.active; },
+  get loud() { return lessonFlags.loud; }, get arms() { return !!ui.arms; }
 };
 function renderLessonList() {
   $('lessonBody').innerHTML = `<p class="note">Short guided activities. Each one starts a new project and sets up the arena for you.</p><ol class="lesson-list">${L.LESSONS.map(ls => {
@@ -953,7 +1007,7 @@ function renderLessonList() {
 function startLesson(id) {
   const ls = L.LESSONS.find(x => x.id === id);
   startNewProject({ name: ls.title, programs: { robot: xmlToState(L.BLANK), remote: null }, arena: { map: ls.map, edits: {} } });
-  Object.assign(lessonFlags, { ran: false, odo0: 0, radio: false, serial: false });
+  Object.assign(lessonFlags, { ran: false, odo0: 0, radio: false, serial: false, loud: false });
   lesson = ls; lessonState[id] ||= { step: 0, done: [] }; lessonState[id].step = 0; writeJSON(LESSONSTORE, lessonState);
   renderLesson();
   toast(`Started “${ls.title}” as a new project. Your other work is in My projects.`);
@@ -998,13 +1052,16 @@ function initSplitter() {
 }
 
 /* ---------- settings ---------- */
-const SPEEDS = { '2': 2, '1': 1, '0.5': 0.5, '0.25': 0.25, '0.1': 0.1 };
+const SPEEDS = { '8': 8, '4': 4, '2': 2, '1': 1, '0.5': 0.5, '0.25': 0.25, '0.1': 0.1 };
 const SCALE = () => ui.big ? 1.05 : 0.85;
 function applyUI() {
   L.setSpeed(SPEEDS[ui.speed] || 1); $('speedSel').value = ui.speed;
   L.real.on = ui.real; $('btnReal').setAttribute('aria-pressed', ui.real); $('btnReal').textContent = ui.real ? 'Real-world: On' : 'Real-world: Off';
   L.soundOn = ui.sound; L.trailOn = ui.trail;
   $('optHL').checked = ui.highlight; $('optAuto').checked = ui.autorun; $('optSound').checked = ui.sound; $('optTrail').checked = ui.trail; $('optBig').checked = ui.big;
+  $('optInch').checked = ui.inchGrid; $('optArms').checked = ui.arms;
+  L.inchGrid = ui.inchGrid; L.armsOn = ui.arms || !!(challenge && challenge.arms);
+  setTool(L.tool);
 }
 function showTab(t) {
   ui.tab = t;
@@ -1084,6 +1141,8 @@ function init() {
   const opt = (id, key, after) => { $(id).onchange = (e) => { ui[key] = e.target.checked; applyUI(); writeJSON(UISTORE, ui); if (after) after(); }; };
   opt('optHL', 'highlight'); opt('optAuto', 'autorun'); opt('optSound', 'sound', () => { if (!ui.sound) L.stopSounds(); }); opt('optTrail', 'trail');
   opt('optBig', 'big', () => ws.setScale(SCALE()));
+  opt('optInch', 'inchGrid');
+  opt('optArms', 'arms', () => { if (!RT.running) { resetServos(); } lessonCheckSoon(); });
   const rotate = (d) => { if (L.lockRobot) return L.emit('locked'); bot.a += d; L.sense(true); };
   $('btnRotL').onclick = () => rotate(-Math.PI / 12);
   $('btnRotR').onclick = () => rotate(Math.PI / 12);
@@ -1135,6 +1194,7 @@ function init() {
   $('menuPop').innerHTML = `<button role="menuitem" data-act="projects" data-close>My projects…</button>
     <button role="menuitem" data-act="new" data-close>New blank project</button>
     <button role="menuitem" data-act="file" data-close>Save or open a file…</button>
+    <button role="menuitem" data-act="judges" data-close>Code for judges (print or PDF)…</button>
     <div class="menu-label">Examples (open as a new project)</div>
     ${Object.entries(L.EXAMPLES).filter(([k]) => k !== 'blank').sort((a, b) => LEVELS.indexOf(a[1].level) - LEVELS.indexOf(b[1].level)).map(([k, ex]) => `<button role="menuitem" data-ex="${k}" data-close><span>${esc(ex.name)}</span>${ex.level ? `<span class="lvl lvl-${ex.level.toLowerCase()}">${esc(ex.level)}</span>` : ''}</button>`).join('')}
     <div class="menu-sep"></div>
@@ -1148,6 +1208,7 @@ function init() {
     else if (b.dataset.act === 'projects') openProjects();
     else if (b.dataset.act === 'new') { startNewProject(blankProject()); toast('New project. Your other projects are in My projects.'); }
     else if (b.dataset.act === 'file') openFileModal();
+    else if (b.dataset.act === 'judges') openJudgeSheet();
     else if (b.dataset.act === 'teacher') openTeacher();
     else if (b.dataset.act === 'progress') openProgress();
     else if (b.dataset.act === 'tour') startTour();
@@ -1171,14 +1232,17 @@ function init() {
   $('tabBlocks').onclick = () => showView(false);
   $('tabJs').onclick = () => showView(true);
   $('btnCopyCode').onclick = () => copyText(L.generate(ws, true));
+  $('btnJudges').onclick = openJudgeSheet;
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
-  // space bar runs and stops, unless the student is typing or working in the blocks
+  // keys: space = run/stop, R = reset, + / − = zoom, F = follow the robot; never while typing or working in the blocks
   document.addEventListener('keydown', (e) => {
-    if (e.key !== ' ' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const keys = { ' ': 'btnRun', r: 'btnReset', R: 'btnReset', '+': 'zIn', '=': 'zIn', '-': 'zOutA', f: 'zFollow', F: 'zFollow' };
+    if (!keys[e.key] || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (!$('modal').hidden || !$('teacher').hidden || !$('tour').hidden) return;
     if (t.closest && (t.closest('input, textarea, select, button, [contenteditable], .blocklyWidgetDiv, .blocklyDropDownDiv') || t.closest('#blockly'))) return;
-    e.preventDefault(); $('btnRun').click();
+    const b = $(keys[e.key]); if (b.disabled) return;
+    e.preventDefault(); b.click();
   });
   $('tourNext').onclick = () => { if (tourStep >= TOUR_STEPS.length - 1) endTour(); else { tourStep++; renderTour(); } };
   $('tourSkip').onclick = endTour;

@@ -261,17 +261,18 @@ L.generate = function (ws, ts) {
   const events = [], start = [], forevers = [];
   for (const b of ws.getTopBlocks(true)) {
     if (!b.isEnabled()) continue;
+    const cm = TS && b.getCommentText() ? G.prefixLines(b.getCommentText() + '\n', '// ') : '';      // a comment on an event block goes above it
     switch (b.type) {
-      case 'mb_on_start': start.push(body(b).replace(/^ {4}/gm, '')); break;
-      case 'mb_forever': forevers.push(`basic.forever(${FN()} {\n${body(b)}})\n`); break;
-      case 'mb_every': forevers.push(`loops.everyInterval(${F(b, 'MS')}, ${FN()} {\n${body(b)}})\n`); break;
-      case 'mb_on_button': events.push(`input.onButtonPressed(Button.${F(b, 'BTN')}, ${FN()} {\n${body(b)}})\n`); break;
-      case 'mb_on_gesture': events.push(`input.onGesture(Gesture.${F(b, 'G')}, ${FN()} {\n${body(b)}})\n`); break;
-      case 'mb_on_sound': events.push(`input.onSound(DetectedSound.${F(b, 'S')}, ${FN()} {\n${body(b)}})\n`); break;
-      case 'cb_ir_on': events.push(`CutebotPro.irCallback(${FN()} {\n${body(b)}})\n`); break;
-      case 'radio_on_number': events.push(`radio.onReceivedNumber(${FN('receivedNumber')} {\n${body(b)}})\n`); break;
-      case 'radio_on_string': events.push(`radio.onReceivedString(${FN('receivedString')} {\n${body(b)}})\n`); break;
-      case 'radio_on_value': events.push(`radio.onReceivedValue(${FN('name, value')} {\n${body(b)}})\n`); break;
+      case 'mb_on_start': start.push(cm + body(b).replace(/^ {4}/gm, '')); break;
+      case 'mb_forever': forevers.push(cm + `basic.forever(${FN()} {\n${body(b)}})\n`); break;
+      case 'mb_every': forevers.push(cm + `loops.everyInterval(${F(b, 'MS')}, ${FN()} {\n${body(b)}})\n`); break;
+      case 'mb_on_button': events.push(cm + `input.onButtonPressed(Button.${F(b, 'BTN')}, ${FN()} {\n${body(b)}})\n`); break;
+      case 'mb_on_gesture': events.push(cm + `input.onGesture(Gesture.${F(b, 'G')}, ${FN()} {\n${body(b)}})\n`); break;
+      case 'mb_on_sound': events.push(cm + `input.onSound(DetectedSound.${F(b, 'S')}, ${FN()} {\n${body(b)}})\n`); break;
+      case 'cb_ir_on': events.push(cm + `CutebotPro.irCallback(${FN()} {\n${body(b)}})\n`); break;
+      case 'radio_on_number': events.push(cm + `radio.onReceivedNumber(${FN('receivedNumber')} {\n${body(b)}})\n`); break;
+      case 'radio_on_string': events.push(cm + `radio.onReceivedString(${FN('receivedString')} {\n${body(b)}})\n`); break;
+      case 'radio_on_value': events.push(cm + `radio.onReceivedValue(${FN('name, value')} {\n${body(b)}})\n`); break;
       case 'procedures_defnoreturn': case 'procedures_defreturn': G.blockToCode(b); break;
     }
   }

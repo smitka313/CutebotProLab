@@ -123,6 +123,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 .cstrip { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--r); padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .cs-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cs-time.warn { color: var(--warn); }
 .cs-time { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
 .cs-goal, .cs-prog { color: var(--muted); }
 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); white-space: nowrap; }
@@ -318,6 +319,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .mini-code { margin: 0; max-height: 280px; overflow: auto; font-family: var(--font-code); font-size: 12px; line-height: 1.5; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .teacher { position: fixed; inset: 0; z-index: 150; background: var(--bg); overflow: auto; display: flex; flex-direction: column; gap: 10px;
   padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+#teacher .tseg { align-self: flex-start; margin-bottom: 8px; }
 .teacher.drop { outline: 3px dashed var(--accent); outline-offset: -10px; }
 .thead { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .thead h2 { margin: 0 8px 0 0; font-size: 18px; }
@@ -358,6 +360,17 @@ button, select, input, textarea { font: inherit; color: inherit; }
   .lessons { position: absolute; right: 0; top: 0; bottom: 0; width: min(340px, 92%); z-index: 6; box-shadow: -8px 0 24px rgba(0,0,0,.2); }
   .tools { margin-left: 0; }
   .tools input[type=text] { width: 130px; }
+}
+#printSheet { display: none; }
+@media print {
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important; }
+  body > *:not(#printSheet) { display: none !important; }
+  #printSheet { display: block; font-family: var(--font-ui); color: #000; }
+  #printSheet h1 { font-size: 18pt; margin: 0 0 4pt; }
+  #printSheet h2 { font-size: 13pt; margin: 14pt 0 4pt; }
+  #printSheet p { font-size: 10pt; margin: 0; line-height: 1.5; }
+  #printSheet pre { font-family: var(--font-code); font-size: 9.5pt; line-height: 1.45; white-space: pre-wrap; border: 1px solid #ccc; padding: 8pt; margin: 0; }
+  #printSheet .tk-key { color: #6a2fa8; } #printSheet .tk-ns { color: #0a5fa8; } #printSheet .tk-str { color: #8a4410; } #printSheet .tk-num { color: #08701f; } #printSheet .tk-com { color: #555; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -409,6 +422,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
           </optgroup>
         </select>
         <select id="speedSel" aria-label="Simulation speed" title="Slow motion">
+          <option value="8">Fastest 8×</option>
+          <option value="4">Faster 4×</option>
           <option value="2">Fast 2×</option>
           <option value="1">Speed 1×</option>
           <option value="0.5">Slow ½×</option>
@@ -425,6 +440,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
             <label><input type="checkbox" id="optTrail"> Draw the robot’s path</label>
             <label><input type="checkbox" id="optSound"> Sound</label>
             <label><input type="checkbox" id="optBig"> Bigger blocks</label>
+            <label><input type="checkbox" id="optInch"> Grid in inches (6 in squares)</label>
+            <label><input type="checkbox" id="optArms"> Servo arms on S1 and S2</label>
           </div>
         </div>
       </div>
@@ -568,6 +585,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
             <div class="codebar">
               <p><b id="codeTitle"></b><br>Read-only MakeCode JavaScript. Edit your program in Blocks.</p>
               <button class="btn" id="btnCopyCode">Copy code</button>
+              <button class="btn" id="btnJudges">Code for judges</button>
             </div>
             <pre id="code"></pre>
           </div>
@@ -603,6 +621,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
   </div>
 </div>
 
+<section id="printSheet" aria-hidden="true"></section>
+
 <div class="modal" id="modal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle">
     <h2 id="mTitle"></h2>
@@ -615,12 +635,12 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="vendor/blockly/blocks_compressed.js"></script>
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
-<script src="js/data.js?v=20261027b"></script>
-<script src="js/sim.js?v=20261027b"></script>
-<script src="js/runtime.js?v=20261027b"></script>
-<script src="js/blocks.js?v=20261027b"></script>
-<script src="js/content.js?v=20261027b"></script>
-<script src="js/missions.js?v=20261027b"></script>
-<script src="js/app.js?v=20261027b"></script>
+<script src="js/data.js?v=20261027c"></script>
+<script src="js/sim.js?v=20261027c"></script>
+<script src="js/runtime.js?v=20261027c"></script>
+<script src="js/blocks.js?v=20261027c"></script>
+<script src="js/content.js?v=20261027c"></script>
+<script src="js/missions.js?v=20261027c"></script>
+<script src="js/app.js?v=20261027c"></script>
 </body>
 </html>

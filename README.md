@@ -17,7 +17,8 @@ The screen has two halves: the **arena** with the robot on the left, and your **
 - **Build your program:** open a category on the left of the blocks area (for example **Cutebot Pro** or **Basic**) and drag blocks in. Blocks inside **on start** run once. Blocks inside **forever** repeat over and over. Blocks that aren't inside one of these are greyed out and don't run.
 - **Find a block:** type a word like "sonar" or "turn" in the **Search blocks** box.
 - **Fix mistakes:** use the **↶** and **↷** buttons to undo and redo. Drag a block to the **trash can** to delete it.
-- **Test it:** press **Run** (or the space bar). Watch the robot in the arena. Press **Stop** to stop it and **Reset** to put the robot back at the start.
+- **Test it:** press **Run** (or the space bar). Watch the robot in the arena. Press **Stop** to stop it and **Reset** to put the robot back at the start. To test long runs quickly, pick **Faster 4×** or **Fastest 8×** from the speed list.
+- **Keyboard shortcuts:** **Space** runs and stops, **R** resets, **+** and **−** zoom the arena, **F** follows the robot.
 - **Change the arena:** pick a different one from the list next to Reset, such as Line track or Obstacle room.
 - **Learn step by step:** click **Lessons** at the top for guided activities. Start with "Hello, Cutebot Pro".
 - **Your projects:** open **Menu → My projects** to switch between projects. Rename a project in the name box at the top of the page. Your work saves automatically.
@@ -76,6 +77,9 @@ Good to know:
 - **Charlie uses the micro:bit V2 microphone.** Find **on loud sound**, **sound level** and **set loud sound threshold** in **Input**. To test sounds outside the mission, use the **Room sound level** slider and **Make a loud sound** on the micro:bit tab.
 - **Delta and Echo give your robot two arms** on servos S1 (left) and S2 (right). They start folded back at 0°; 90° sticks straight out.
 - **Golf** has an open 4 × 8 ft space in the arena list. Use **Edit arena** to draw roads and add boxes for your idea.
+- **The fields are measured in inches.** Grid squares are 6 in, and the sonar shows inches too. The big fields start zoomed in on the robot; press **−** to see the whole field. To use inches anywhere, tick **Options → Grid in inches**.
+- **Watch the checklist.** An item turns red (✗) as soon as it can't be done any more, like touching the lead box in Bravo. In the last 10 seconds the clock turns red and beeps.
+- **Practice first with the lessons** "Listen with the microphone" and "Servo arms". To use the arms outside a mission, tick **Options → Servo arms on S1 and S2**.
 - **Write your own code.** The competition rules say students write all the code, so the lab has no mission answers. The hints give ideas, not programs.
 
 ## Turning in your work
@@ -112,5 +116,6 @@ Don't open or change the file before you upload it. Your teacher replays every c
 - **The line sensor blocks never change.** Put **get a tracking sensor state value** at the top of **forever**, before the blocks that check the sensors.
 - **My program stopped with a red message.** Click **Show me the block** to find the block that caused it.
 - **The Download button did nothing.** Edge shows downloads in a box at the top right. If it asks, choose Keep. The file is also in your Downloads folder. You can also click **Copy as text**, paste it into a new file, and save it with the `.cutebotpro.json` ending.
+- **I need my code for a V2X submission.** The rules ask for your code as a PDF with each video. First add comments to your blocks (right-click a block, **Add Comment**). Then open **Menu → Code for judges**, fill in your team name, number and mission, and click **Print or save as PDF**. In the print window, choose **Save as PDF**.
 - **I want to try it on a real Cutebot Pro.** Click **Send to real Cutebot Pro** and follow the steps to open your code in MakeCode with the Cutebot Pro extension.
 - **The lab looks out of date.** Press **Ctrl+F5** to load the newest version.
