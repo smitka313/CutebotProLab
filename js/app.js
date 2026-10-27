@@ -29,7 +29,7 @@ function modal(title, bodyHtml, actions, wide) {
   }
   $('modal').hidden = false; a.lastChild?.focus();
 }
-function closeModal() { $('modal').hidden = true; }
+function closeModal() { $('modal').hidden = true; if (bonusAsk) bonusAsk.finish(); }      // closing the bonus question finishes the run
 $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
 async function copyText(text, ta) {
   try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); return true; }
@@ -272,7 +272,7 @@ function run() {
   if (challenge) {
     resetAll(true);
     crun = L.makeChallengeRun(challenge); crun.start(); L.activeRun = crun; replayOf = null;
-    opts.onStep = (dt) => { const r = crun.tick(dt); if (r) finishChallenge(); };
+    opts.onStep = (dt) => { const r = crun.tick(dt); if (!r) return; if (r[0] === 'max') askBonus(); else finishChallenge(); };
     L.lockRobot = true;
   }
   codeStale = false;
@@ -593,6 +593,7 @@ function finishChallenge() {
   if (r.state === 'pass' && !replayOf) {
     const t = +r.t.toFixed(2);
     const proof = { c: ch.id, t, steps: r.n, seed: S.seed, real: L.real.active, init: S.init, inputs: S.record.slice(), programs: runPrograms, at: Date.now(), v: L.VERSION };
+    if (r.keepGoing) proof.keepGoing = true;
     if (ch.scored) proof.score = r.score;
     const old = proofs[ch.id];
     // missions keep the highest score (then the faster time); challenges keep the fastest time
@@ -617,6 +618,19 @@ function showPassed({ ch, t, better, best, result, real }) {
   const head = ch.scored ? `<b>${esc(ch.title)}</b>: <b>${esc(result)}</b> of ${ch.max} (practice score) in ${t} s` : `<b>${esc(ch.title)}</b> in <b>${t} s</b>`;
   modal(ch.scored ? 'Mission scored!' : 'Challenge passed!', `<div class="passed"><div class="passed-big" aria-hidden="true">✓</div><div>${head}${real ? ' in real-world mode' : ''}.<br>
     ${better ? 'Your proof is saved in this browser.' : `Your best is still ${esc(best)}.`} Turn in your work so your teacher can check it.</div></div>`, actions);
+}
+/* Every rubric point is earned and the mission has bonus points: pause and ask whether to finish or keep going. */
+let bonusAsk = null;
+function askBonus() {
+  const ch = challenge, r = crun; if (!ch || !r) return;
+  L.pause(true);
+  const finish = () => { if (bonusAsk !== r) return; bonusAsk = null; L.pause(false); r.finishNow(r.metMsg()); finishChallenge(); };
+  const keep = () => { if (bonusAsk !== r) return; bonusAsk = null; r.keepGoing = true; L.pause(false); renderChallengeStrip(true); };
+  bonusAsk = r; bonusAsk.finish = finish;
+  modal('Every goal met!', `<div class="passed"><div class="passed-big" aria-hidden="true">✓</div><div><b>${esc(ch.title)}</b>: <b>${ch.score(r.st)} of ${ch.max}</b> practice points at ${r.t.toFixed(1)} s.<br>
+    Bonus: ${esc(ch.bonus())}. Judges award bonus points on the real field.</div></div>
+    <p class="note big" style="padding:0">Finish now to save this score as complete, or keep going to keep the run going and work on the bonus. If you keep going, the run ends when the mission ends, and the score is saved then.</p>`,
+    [['Keep going for the bonus', keep], ['Finish now', finish, true]]);
 }
 let stripKey = '';
 function warnBeep() { const a = L.audio(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.value = 0.05; o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 0.18); }
@@ -681,7 +695,8 @@ async function verifyProof(proof, { fast = true, who = '' } = {}) {
   crun = L.makeChallengeRun(ch); crun.start(); L.activeRun = crun; replayOf = fast ? null : (who || 'student');
   verifying = fast; lastError = '';
   L.lockRobot = true;
-  const started = L.runAll(codes, { seed: proof.seed, real: !!proof.real, init: proof.init, replay: proof.inputs || [], fast, onStep: (dt) => { if (crun.tick(dt)) { if (fast) L.stopAll(); else finishChallenge(); } } });
+  crun.keepGoing = !!proof.keepGoing;      // the replay makes the student's choice at the full score
+  const started = L.runAll(codes, { seed: proof.seed, real: !!proof.real, init: proof.init, replay: proof.inputs || [], fast, onStep: (dt) => { const r = crun.tick(dt); if (!r) return; if (r[0] === 'max') crun.finishNow(crun.metMsg()); if (fast) L.stopAll(); else finishChallenge(); } });
   if (!started) { verifying = false; return { status: 'fail', msg: lastError || 'The program could not start.' }; }
   if (!fast) { renderChallengeStrip(true); return null; }
   await L.whenStopped();

@@ -8,7 +8,9 @@ const bot = L.bot;
 
 const STEP = L.STEP = 5;                 // simulated milliseconds per step
 const STOP = L.STOP = { stop: true };
-const RT = L.RT = { running: false, gen: 0, speed: 1, hits: new Map(), ticks: 0, fast: false, realBase: 0, simBase: 0, waiters: [] };
+const RT = L.RT = { running: false, gen: 0, speed: 1, hits: new Map(), ticks: 0, fast: false, realBase: 0, simBase: 0, waiters: [], paused: false };
+// pause the simulated clock (for a question to the student); resuming picks up exactly where it stopped
+L.pause = (on) => { RT.paused = !!on; if (!on) { RT.realBase = performance.now(); RT.simBase = S.t; } };
 const S = L.sched = { t: 0, step: 0, timers: [], seq: 0, queue: [], record: [], replay: null, onStep: null, seed: 0 };
 L.simNow = () => S.t;
 L.setSpeed = (speed) => { RT.realBase = performance.now(); RT.simBase = S.t; RT.speed = speed; };
@@ -406,10 +408,11 @@ async function loop(gen) {
   await flush();               // let every program start before the first step, in live runs and replays alike
   RT.realBase = performance.now(); RT.simBase = S.t;
   while (RT.running && RT.gen === gen) {
+    if (RT.paused) { await nextFrame(); continue; }
     if (RT.fast) { await step(); continue; }
     const target = RT.simBase + (performance.now() - RT.realBase) * RT.speed;
     let n = 0;
-    while (S.t + STEP <= target && n < 80 && RT.running && RT.gen === gen) { await step(); n++; }
+    while (S.t + STEP <= target && n < 80 && RT.running && RT.gen === gen && !RT.paused) { await step(); n++; }
     if (n >= 80) { RT.realBase = performance.now(); RT.simBase = S.t; }     // can't keep up: slow down rather than stall
     if (RT.running && RT.gen === gen) await nextFrame();
   }
@@ -419,7 +422,7 @@ async function loop(gen) {
 const AsyncFunction = (async () => {}).constructor;
 L.stopAll = function () {
   const was = RT.running;
-  RT.running = false; RT.gen++;
+  RT.running = false; RT.gen++; RT.paused = false;
   for (const x of S.timers) if (x.rej) x.rej(STOP);
   S.timers = []; S.onStep = null;
   for (const d of Object.values(devices)) { d.handlers = {}; d.forevers = []; d.active = false; d.ir.held = false; stopRing(d); }

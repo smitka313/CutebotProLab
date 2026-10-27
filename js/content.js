@@ -204,15 +204,26 @@ L.CHALLENGES.sort((a, b) => CHALLENGE_ORDER.indexOf(a.id) - CHALLENGE_ORDER.inde
 
 /** One attempt at a challenge. The same object runs live runs and teacher replays, so the rules can't drift apart. */
 L.makeChallengeRun = function (ch) {
-  const run = { ch, st: {}, t: 0, n: 0, state: 'ready', msg: '' };
-  run.start = () => { run.state = 'running'; run.t = 0; run.n = 0; run.st = {}; run.msg = ''; if (ch.setup) ch.setup(run.st); };
+  // keepGoing: the student chose to continue past the full score to work on the bonus (saved in the proof)
+  const run = { ch, st: {}, t: 0, n: 0, state: 'ready', msg: '', keepGoing: false };
+  run.start = () => { run.state = 'running'; run.t = 0; run.n = 0; run.st = {}; run.msg = ''; run.keepGoing = false; if (ch.setup) ch.setup(run.st); };
+  run.metMsg = () => 'Every goal met!' + (ch.metNote ? ' ' + ch.metNote : '');
+  // end the run now with its score, as if the mission had ended by itself
+  run.finishNow = (msg) => {
+    run.st.endT ??= run.t; run.score = ch.score(run.st);
+    run.state = run.score > 0 ? 'pass' : 'fail'; run.msg = msg || '';
+    return [run.state, run.msg];
+  };
   run.tick = (dt) => {
     if (run.state !== 'running') return null;
     run.n++; run.t = Math.round(run.n * dt * 1000) / 1000;     // exact step count, so a replay reports the identical time
     let r = ch.tick(run.st, dt, run.t);
     if (!r && run.t >= ch.limit) r = ch.scored ? ['done', 'Time is up.'] : ['fail', 'Time is up.'];
-    // a mission ends as soon as it has every rubric point (bonus points are judged on the real field)
-    if (!r && ch.scored && ch.score(run.st) >= ch.max) { run.st.endT ??= run.t; r = ['done', 'Every goal met!' + (ch.metNote ? ' ' + ch.metNote : '')]; }
+    // every rubric point earned: a mission with bonus points asks first ('max'); otherwise it ends here
+    if (!r && ch.scored && !run.keepGoing && ch.score(run.st) >= ch.max) {
+      if (ch.bonus) return ['max'];
+      run.st.endT ??= run.t; r = ['done', run.metMsg()];
+    }
     // a scored mission ends with points instead of pass/fail: any points earn a proof
     if (r && r[0] === 'done') { run.score = ch.score(run.st); r = run.score > 0 ? ['pass', r[1]] : ['fail', (r[1] ? r[1] + ' ' : '') + 'No points yet.']; }
     if (r) { run.state = r[0]; run.msg = r[1] || ''; if (r[0] === 'fail') run.failAt = { x: bot.x, y: bot.y }; }
