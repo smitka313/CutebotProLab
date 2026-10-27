@@ -182,7 +182,7 @@ function openProjects() {
 
 /* ---------- code view ---------- */
 function highlight(code) {
-  return code.replace(/(\/\/.*$)|(`[^`]*`|"(?:\\.|[^"])*"|'(?:\\.|[^'])*')|\b(let|function|if|else|while|for|return|true|false|break|continue)\b|\b(basic|input|music|led|loops|CutebotPro|radio|serial|neopixel|strip)\b|\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b|([^/`"'\w]+|\w+|.)/gm,
+  return code.replace(/(\/\/.*$)|(`[^`]*`|"(?:\\.|[^"])*"|'(?:\\.|[^'])*')|\b(let|function|if|else|while|for|return|true|false|break|continue)\b|\b(basic|input|music|led|loops|CutebotPro|radio|serial|neopixel|strip|huskylens)\b|\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b|([^/`"'\w]+|\w+|.)/gm,
     (m, com, str, key, ns, num, other) => com ? `<span class="tk-com">${esc(com)}</span>` : str ? `<span class="tk-str">${esc(str)}</span>` : key ? `<span class="tk-key">${key}</span>` : ns ? `<span class="tk-ns">${ns}</span>` : num ? `<span class="tk-num">${num}</span>` : esc(other));
 }
 function refreshCode() {
@@ -204,7 +204,7 @@ const KEYWORDS = {
   cb_speed: 'encoder wheel speed measure', cb_degrees: 'encoder wheel rotation degrees distance odometer measure', cb_clear_deg: 'encoder reset clear',
   cb_stop: 'stop brake halt', cb_sonar: 'distance ultrasonic sonar obstacle', cb_tracking: 'line follow sensor track 4-way',
   cb_track_read: 'line follow sensor track read', cb_track_ch: 'line sensor channel track', cb_track_gray: 'line sensor gray grey brightness', cb_offset: 'line follow offset position',
-  cb_headlights: 'light led color headlight', cb_headlights_rgb: 'light led color headlight rgb', cb_servo: 'servo expansion arm', cb_cservo: 'servo continuous spin', cb_ext_motor: 'expansion motor', np_show_color: 'rainbow neopixel led light underglow color', np_set_pixel: 'rainbow neopixel led pixel', np_rainbow: 'rainbow neopixel led', np_clear: 'rainbow neopixel led off', np_brightness: 'rainbow neopixel brightness',
+  cb_headlights: 'light led color headlight', cb_headlights_rgb: 'light led color headlight rgb', cb_servo: 'servo expansion arm', cb_cservo: 'servo continuous spin', cb_ext_motor: 'expansion motor', np_show_color: 'rainbow neopixel led light underglow color', np_set_pixel: 'rainbow neopixel led pixel', np_rainbow: 'rainbow neopixel led', np_clear: 'rainbow neopixel led off', np_brightness: 'rainbow neopixel brightness', hl_mode: 'huskylens camera vision color algorithm', hl_request: 'huskylens camera vision request', hl_box: 'huskylens camera vision color position x y', hl_appear: 'huskylens camera vision color see', hl_center: 'huskylens camera vision center', hl_init: 'huskylens camera start',
   cb_ir_on: 'infrared remote ir', cb_ir_button: 'infrared remote ir', mb_on_sound: 'sound microphone loud clap noise', mb_sound_level: 'sound microphone level noise', mb_sound_threshold: 'sound microphone threshold loud', mb_pause: 'wait delay sleep', mb_on_button: 'button press', radio_send_number: 'radio send', mb_play_tone: 'sound music note beep'
 };
 const searchIndex = {};
@@ -235,9 +235,13 @@ function updateTabs() {
   const states = JSON.stringify(proj.programs) + JSON.stringify(Blockly.serialization.workspaces.save(ws));
   const radio = /"type":"radio_/.test(states) || proj.active === 'remote' || hasCode('remote');
   const ir = /"type":"cb_ir_/.test(states);
+  // the HuskyLens is mounted once a program uses it, and its tab shows then (and on the missions where a camera helps)
+  L.huskyOn = /"type":"hl_/.test(states);
+  const husky = L.huskyOn || !!(challenge && challenge.vision);
   document.querySelector('[data-tab="remote"]').hidden = !radio;
   document.querySelector('[data-tab="ir"]').hidden = !ir;
-  if ((ui.tab === 'remote' && !radio) || (ui.tab === 'ir' && !ir)) showTab('board');
+  document.querySelector('[data-tab="husky"]').hidden = !husky;
+  if ((ui.tab === 'remote' && !radio) || (ui.tab === 'ir' && !ir) || (ui.tab === 'husky' && !husky)) showTab('board');
 }
 
 /* ---------- run / stop / reset ---------- */
@@ -516,6 +520,11 @@ L.drawOverlay = (c, s) => {
 };
 const hintsShown = {};      // challenge id -> how many hints the student has opened
 // mission props (a moving lead box, servo arms, room noise) exist only while their mission is open
+L.visionHook = () => (challenge && crun && challenge.vision ? challenge.vision(crun.st) : []);
+function renderHusky() {
+  const H = L.husky;
+  $('hlLearned').innerHTML = H.learned.length ? H.learned.map((c, i) => `<li><i style="background:${H.COLORS[c]}"></i>ID${i + 1}: ${esc(c)}</li>`).join('') : '<li class="note">Nothing learned. Put a colored object in the center box and press Learn.</li>';
+}
 function clearMission() { L.dyn = []; L.armsOn = !!ui.arms; L.missionNoise = null; L.soundBurst = null; }
 // servo arms (when shown) start folded back at 0°; without arms the servo horns rest at 90°
 function resetServos() { const a = L.armsOn ? 0 : 90; bot.servo = [a, a, 90, 90]; bot.servoT = [a, a, 90, 90]; }
@@ -540,7 +549,7 @@ function armChallenge(id) {
   setTool('move'); document.querySelectorAll('#toolSeg button').forEach(b => b.disabled = b.dataset.tool !== 'move'); $('btnSetStart').disabled = true;
   enterArena(ch); hideError();
   if (ch.setup) ch.setup(crun.st);
-  renderChallengeStrip(true); renderChallengeList(); updateArenaButtons();
+  renderChallengeStrip(true); renderChallengeList(); updateArenaButtons(); updateTabs();
 }
 function exitChallenge(quiet) {
   if (!challenge) return;
@@ -551,7 +560,7 @@ function exitChallenge(quiet) {
   if (L.MISSION_MAPS.has(L.arena.map)) setMap(freeMap || 'open', true);      // a mission field without its mission is just an empty mat
   else L.buildFloor();
   if (!quiet) resetAll();
-  renderChallengeList(); updateArenaButtons();
+  renderChallengeList(); updateArenaButtons(); updateTabs();
 }
 function finishChallenge() {
   const ch = challenge, r = crun, S = L.sched;
@@ -878,6 +887,7 @@ function openSend() {
   modal('Run this on a real Cutebot Pro', `<ol>
       <li>Open <a href="https://makecode.microbit.org/" target="_blank" rel="noopener">makecode.microbit.org</a> and create a new project.</li>
       <li>Click <b>Extensions</b> at the bottom of the block list, search for <b>cutebot pro</b>, and add the ELECFREAKS <b>Cutebot Pro</b> extension (pxt-cutebot-pro). It brings the NeoPixel blocks for the rainbow LEDs with it. If search doesn’t find it, paste <b>https://github.com/elecfreaks/pxt-Cutebot-Pro</b> into the search box.</li>
+      ${/huskylens\./.test(robotCode) ? '<li>Your code uses the HuskyLens: also add the DFRobot <b>HuskyLens</b> extension (search for <b>huskylens</b>).</li>' : ''}
       <li>Switch to <b>JavaScript</b>, select all the code there, and paste this code over it.</li>
       <li>Switch back to <b>Blocks</b> to check it, then click <b>Download</b> and copy the file to the micro:bit in the Cutebot Pro.</li></ol>
     <div class="code-head"><b>Cutebot Pro micro:bit</b><span><button class="btn small" id="cpRobot">Copy</button><button class="btn small" id="dlRobot">Download .txt</button></span></div>
@@ -1163,6 +1173,10 @@ function init() {
   slider('light', 'lightOut', v => v, v => L.input('e', 'robot', 'light', v));
   slider('sound', 'soundOut', v => v, v => L.input('e', 'robot', 'sound', v));
   $('btnLoud').onclick = () => L.input('n', 'robot', 210, 500);
+  renderHusky();
+  $('hlLearn').onclick = () => { const c = L.husky.learnCenter(L.husky.learned, L.husky.learned.length + 1); if (!c) return toast('Nothing in the center box. Turn or move the robot until a colored object is in the middle of the camera view.'); L.husky.save(); renderHusky(); toast(`Learned ${c} as ID${L.husky.learned.indexOf(c) + 1}. It applies from the next Run.`); };
+  $('hlForget').onclick = () => { L.husky.learned = []; L.husky.save(); renderHusky(); };
+  $('hlDefault').onclick = () => { L.husky.learned = ['red', 'blue', 'yellow', 'green']; L.husky.save(); renderHusky(); };
   slider('tiltX', 'tiltXOut', v => v, v => L.input('a', 'remote', 'x', v));
   slider('tiltY', 'tiltYOut', v => v, v => L.input('a', 'remote', 'y', v));
   $('btnTiltZero').onclick = () => { ['tiltX', 'tiltY'].forEach(id => { $(id).value = 0; $(id).dispatchEvent(new Event('input')); }); };
@@ -1273,6 +1287,10 @@ function init() {
       if (challenge) renderChallengeStrip();
       if (logDirty && !$('tab-data').hidden) { const el = $('serialLog'); el.textContent = data.log.slice(-120).join('\n'); el.scrollTop = el.scrollHeight; logDirty = false; }
       if (lesson && ui.lessons && t % 1000 < 110) lessonCheckSoon();
+    }
+    if (!$('tab-husky').hidden) {
+      const run = RT.running && L.huskyRun;
+      L.husky.draw($('hlView'), { mode: run ? L.huskyRun.mode : -1, learned: run ? L.huskyRun.learned : L.husky.learned });
     }
   });
   L.startLoop();

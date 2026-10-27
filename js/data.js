@@ -3,7 +3,7 @@
 'use strict';
 const L = window.Lab = {};
 
-L.VERSION = 'pro-1.2';           // bump when the simulator or generator changes how programs behave
+L.VERSION = 'pro-1.3';           // bump when the simulator or generator changes how programs behave
 L.W = 120; L.H = 80;            // arena size in cm
 L.MAXV = 50;                     // cm/s at 100%
 L.WHEELBASE = 9.4;               // cm between wheels
@@ -15,7 +15,7 @@ L.PXCM = 8;                      // floor resolution (pixels per cm)
 L.LINE_W = 2.4;                  // black tape width (cm)
 
 L.C = { basic: '#1E90FF', input: '#D400D4', music: '#E63022', led: '#5C2D91', radio: '#E3008C', loops: '#00AA00', logic: '#00A4A6',
-  vars: '#DC143C', math: '#9400D3', text: '#B8860B', fn: '#3455DB', cute: '#008C8C', serial: '#002050' };
+  vars: '#DC143C', math: '#9400D3', text: '#B8860B', fn: '#3455DB', cute: '#008C8C', serial: '#002050', husky: '#e7660b' };
 
 L.FONT = {
   '0':[14,19,21,25,14],'1':[4,12,4,4,14],'2':[28,2,12,16,30],'3':[30,2,4,17,14],'4':[6,10,18,31,2],

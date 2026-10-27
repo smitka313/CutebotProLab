@@ -31,6 +31,8 @@ function signalWatch(st) {
 L.on('tone', (dev) => { const r = L.activeRun; if (r && r.state === 'running' && dev.id === 'robot') r.st.toneFlag = r.st.toneAny = true; });
 // arms start folded back (0°); the program swings them out
 const foldArms = () => { bot.servo[0] = bot.servoT[0] = bot.servo[1] = bot.servoT[1] = 0; };
+// the HuskyLens counts as used once the program switched to Color Recognition and read a result
+const camUsed = () => !!(L.huskyRun && L.huskyRun.mode === 4 && L.huskyRun.requests > 0);
 const overTime = (t, limit) => t > limit ? Math.ceil((t - limit - 1e-9) / 10) : 0;
 
 /* ---------------------------------------------------------------- maps */
@@ -387,9 +389,10 @@ const MISSIONS = [
       st.still = stopped() ? st.still + dt : 0;
       if (st.moved > 30 && st.still > 10) return ['done', 'The robot stopped for 10 s.'];
     },
-    score: (st) => Math.round(deltaScore(st).total * 2) / 2,
-    checklist: (st) => { const s = deltaScore(st), inL = st.cubes.filter(q => inRect(DELTA.ground, q.x, q.y, 1.27) || inRect(DELTA.raised, q.x, q.y, 1.27)).length; return [[`Cubes moved out of storage: ${s.out} pts`, s.out > 0 ? true : null, 0], [`Cubes in lodges: ${inL} (${s.lodge} pts)`, s.lodge > 0 ? true : null, 0]]; },
-    bonus: () => 'Extra: a door that opens and closes autonomously (+10/+5) and camera color recognition (+5) are judged on the real field',
+    score: (st) => Math.round(deltaScore(st).total * 2) / 2 + (camUsed() ? 5 : 0),
+    checklist: (st) => { const s = deltaScore(st), inL = st.cubes.filter(q => inRect(DELTA.ground, q.x, q.y, 1.27) || inRect(DELTA.raised, q.x, q.y, 1.27)).length; return [[`Cubes moved out of storage: ${s.out} pts`, s.out > 0 ? true : null, 0], [`Cubes in lodges: ${inL} (${s.lodge} pts)`, s.lodge > 0 ? true : null, 0], ['Smart camera color recognition (HuskyLens)', camUsed() ? true : null, 5]]; },
+    bonus: () => 'Extra: a door that opens and closes autonomously (+10/+5) is judged on the real field',
+    vision: (st) => (st.cubes || []).map(q => ({ x: q.x - 1.27, y: q.y - 1.27, w: 2.54, d: 2.54, h: 2.54, z: 0, color: q.color })),
     draw(c, s, st) { },
     drawTop(c, s, st) { if (!st.cubes) return; for (const q of st.cubes) { c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(q.x - 1.1, q.y - 1.0, 2.54, 2.54); c.fillStyle = q.fill; c.fillRect(q.x - 1.27, q.y - 1.27, 2.54, 2.54); c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = .15; c.strokeRect(q.x - 1.27, q.y - 1.27, 2.54, 2.54); } },
     marks: [[63, 122, 'Robot start'], [120, 122, '20 cubes + 1 black']],
@@ -407,6 +410,7 @@ const MISSIONS = [
       if (st.maxS >= ECHO.len - 1) { st.finished = true; if (ECHO.RECOS.every(r => st.hit[r.id])) return ['done', 'Finished with every RECO neutralized!']; return ['done', 'Crossed the finish line.']; }
     },
     score: (st) => echoScore(st).total,
+    vision: (st) => ECHO.RECOS.filter(r => !(st.hit && st.hit[r.id])).map(r => ({ x: r.x - RECO_H, y: r.y - RECO_H, w: 2 * RECO_H, d: 2 * RECO_H, h: 2 * RECO_H, z: r.id === 'ledge' ? 10 : 0, color: 'purple' })),
     checklist: (st) => [['Line: start to RECO 1', st.maxS >= ECHO.RECOS[0].s, 3], ['Line: RECO 1 to RECO 2', st.maxS >= ECHO.RECOS[1].s, 5], ['Line: RECO 2 to RECO 3', st.maxS >= ECHO.RECOS[2].s, 7], ['Line: past RECO 3 to the finish', !!st.finished, 10],
       ...ECHO.RECOS.map(r => [`${r.label} knocked over`, !!st.hit[r.id] || (st.maxS > r.s + 25 && !st.hit[r.id] ? 'x' : false), r.pts])],
     bonus: () => 'Extra: time bonus (10, 8, 6, 4, 2) for the five fastest teams that clear every RECO',

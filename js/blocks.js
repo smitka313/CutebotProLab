@@ -61,6 +61,10 @@ const chanOpts = [['1', 'One'], ['2', 'Two'], ['3', 'Three'], ['4', 'Four']], se
 const btnOpts = [['A', 'A'], ['B', 'B'], ['A+B', 'AB']];
 const irOpts = L.IR_BUTTONS.map(b => [b[2] === b[0] ? b[0] : `${b[0]} (${b[2]})`, b[0]]);
 
+const hlAlgOpts = [['Color Recognition', 'ALGORITHM_COLOR_RECOGNITION'], ['Object Tracking', 'ALGORITHM_OBJECT_TRACKING'], ['Object Recognition', 'ALGORITHM_OBJECT_RECOGNITION'],
+  ['Line Tracking', 'ALGORITHM_LINE_TRACKING'], ['Tag Recognition', 'ALGORITHM_TAG_RECOGNITION'], ['Face Recognition', 'ALGORITHM_FACE_RECOGNITION'], ['Object Classification', 'OBJECTCLASSIFICATION']];
+const hlTypeOpts = [['frame', 'HUSKYLENSResultBlock'], ['arrow', 'HUSKYLENSResultArrow']];
+const hlC1 = [['X center', 'xCenter'], ['Y center', 'yCenter'], ['width', 'width'], ['height', 'height']], hlC3 = [['ID', 'ID'], ...hlC1];
 L.BLOCKS = [
   hat('mb_on_start', 'on start', [], C.basic, 'Runs once when the program starts'),
   hat('mb_forever', 'forever', [], C.basic, 'Repeats the code forever, after on start finishes'),
@@ -152,7 +156,22 @@ L.BLOCKS = [
   stmt('np_brightness', 'rainbow LEDs set brightness %1', [num('B')], C.cute, 'Brightness from 0 to 255'),
   stmt('np_rainbow', 'rainbow LEDs show rainbow', [], C.cute, 'Rainbow colors across the LEDs'),
   val('np_color', '%1', [dd('C', L.NP_COLORS.map(c => [c[0], c[1]]))], C.cute, 'Number', 'A NeoPixel color'),
-  val('np_rgb', 'red %1 green %2 blue %3', [num('R'), num('G'), num('B')], C.cute, 'Number', 'Mix a color from 0-255 values')
+  val('np_rgb', 'red %1 green %2 blue %3', [num('R'), num('G'), num('B')], C.cute, 'Number', 'Mix a color from 0-255 values'),
+  // DFRobot HuskyLens (pxt-DFRobot_HuskyLens), with the extension's own block text
+  stmt('hl_init', 'HuskyLens initialize I2C until success', [], C.husky, 'Connect to the HuskyLens. Put this first in “on start”.'),
+  stmt('hl_mode', 'HuskyLens switch algorithm to %1', [dd('ALG', hlAlgOpts)], C.husky, 'Choose what the HuskyLens looks for. The simulator can do Color Recognition so far.'),
+  stmt('hl_request', 'HuskyLens request data once and save into the result', [], C.husky, 'Take one reading. The other HuskyLens blocks read this saved result, so request again whenever you want fresh data.'),
+  val('hl_ids', 'HuskyLens get a total number of learned IDs from the result', [], C.husky, 'Number', 'How many colors (IDs) the HuskyLens has learned'),
+  val('hl_appear_any', 'HuskyLens check if %1 is on screen from the result', [dd('T', hlTypeOpts)], C.husky, 'Boolean', 'True if the result has any frame'),
+  val('hl_center', 'HuskyLens get %1 of frame closest to the center of screen from the result', [dd('K', hlC3)], C.husky, 'Number', 'Screen is 320 × 240: X 0 (left) to 320 (right), Y 0 (top) to 240 (bottom). −1 if no frame.'),
+  val('hl_learned', 'HuskyLens check if ID %1 is learned from the result', [num('ID')], C.husky, 'Boolean', 'True if that ID has been learned'),
+  val('hl_appear', 'HuskyLens check if ID %1 %2 is on screen from the result', [num('ID'), dd('T', hlTypeOpts)], C.husky, 'Boolean', 'True if a frame of that ID is in the result'),
+  val('hl_box', 'HuskyLens get %1 of ID %2 frame from the result', [dd('K', hlC1), num('ID')], C.husky, 'Number', 'X/Y center, width or height in pixels of that ID’s frame. −1 if it isn’t on screen.'),
+  val('hl_count', 'HuskyLens get a total number of %1 total from the result', [dd('T', hlTypeOpts)], C.husky, 'Number', 'How many frames are in the result'),
+  val('hl_count_id', 'HuskyLens get a total number of ID %1 %2 total from the result', [num('ID'), dd('T', hlTypeOpts)], C.husky, 'Number', 'How many frames of that ID'),
+  val('hl_nth', 'HuskyLens get %1 of the No. %2 frame from the result', [dd('K', hlC3), num('N')], C.husky, 'Number', 'Read the frames one by one, starting at No. 1'),
+  stmt('hl_learn', 'HuskyLens learn ID %1 once automatically', [num('ID')], C.husky, 'Learn the color in the middle of the screen as this ID'),
+  stmt('hl_forget', 'HuskyLens forget all learning data of the current algorithm', [], C.husky, 'Forget every learned color')
 ];
 Blockly.common.defineBlocksWithJsonArray(L.BLOCKS);
 
@@ -246,6 +265,20 @@ def('np_brightness', b => `strip.setBrightness(${V(b, 'B', '128')})\n`);
 def('np_rainbow', () => `strip.showRainbow(1, 360)\n`);
 def('np_color', b => call(`neopixel.colors(NeoPixelColors.${F(b, 'C')})`));
 def('np_rgb', b => call(`neopixel.rgb(${V(b, 'R')}, ${V(b, 'G')}, ${V(b, 'B')})`));
+def('hl_init', () => `${AW()}huskylens.initI2c()\n`);
+def('hl_mode', b => `${AW()}huskylens.initMode(protocolAlgorithm.${F(b, 'ALG')})\n`);
+def('hl_request', () => `huskylens.request()\n`);
+def('hl_ids', () => call('huskylens.getIds()'));
+def('hl_appear_any', b => call(`huskylens.isAppear_s(HUSKYLENSResultType_t.${F(b, 'T')})`));
+def('hl_center', b => call(`huskylens.readBox_s(Content3.${F(b, 'K')})`));
+def('hl_learned', b => call(`huskylens.isLearned(${V(b, 'ID', '1')})`));
+def('hl_appear', b => call(`huskylens.isAppear(${V(b, 'ID', '1')}, HUSKYLENSResultType_t.${F(b, 'T')})`));
+def('hl_box', b => call(`huskylens.readeBox(${V(b, 'ID', '1')}, Content1.${F(b, 'K')})`));
+def('hl_count', b => call(`huskylens.getBox(HUSKYLENSResultType_t.${F(b, 'T')})`));
+def('hl_count_id', b => call(`huskylens.getBox_S(${V(b, 'ID', '1')}, HUSKYLENSResultType_t.${F(b, 'T')})`));
+def('hl_nth', b => call(`huskylens.readBox_ss(${V(b, 'N', '1')}, Content3.${F(b, 'K')})`));
+def('hl_learn', b => `huskylens.writeLearn1(${V(b, 'ID', '1')})\n`);
+def('hl_forget', () => `huskylens.forgetLearn()\n`);
 // MakeCode-flavoured versions of Blockly built-ins
 def('math_random_int', b => call(`randint(${V(b, 'FROM')}, ${V(b, 'TO')})`));
 def('text', b => [JSON.stringify(F(b, 'TEXT')), O.ATOMIC]);
@@ -394,6 +427,15 @@ L.makeToolbox = function (devId) {
       { kind: 'block', type: 'np_show' }, { kind: 'block', type: 'np_clear' }, { kind: 'block', type: 'np_rainbow' },
       { kind: 'block', type: 'np_brightness', inputs: { B: sh(128) } },
       { kind: 'block', type: 'np_color' }, { kind: 'block', type: 'np_rgb', inputs: { R: sh(255), G: sh(255), B: sh(255) } } ] },
+    { kind: 'category', name: 'HuskyLens', colour: C.husky, contents: [
+      { kind: 'label', text: 'Camera: Color Recognition is simulated' },
+      { kind: 'block', type: 'hl_init' }, { kind: 'block', type: 'hl_mode' }, { kind: 'block', type: 'hl_request' },
+      { kind: 'block', type: 'hl_appear', inputs: { ID: sh(1) } }, { kind: 'block', type: 'hl_box', inputs: { ID: sh(1) } },
+      { kind: 'block', type: 'hl_appear_any' }, { kind: 'block', type: 'hl_center' },
+      { kind: 'block', type: 'hl_learned', inputs: { ID: sh(1) } }, { kind: 'block', type: 'hl_ids' },
+      { kind: 'label', text: 'More' },
+      { kind: 'block', type: 'hl_count' }, { kind: 'block', type: 'hl_count_id', inputs: { ID: sh(1) } }, { kind: 'block', type: 'hl_nth', inputs: { N: sh(1) } },
+      { kind: 'block', type: 'hl_learn', inputs: { ID: sh(1) } }, { kind: 'block', type: 'hl_forget' } ] },
     { kind: 'category', name: 'Radio', colour: C.radio, contents: [
       { kind: 'block', type: 'radio_set_group', inputs: { GROUP: sh(1) } },
       { kind: 'block', type: 'radio_send_number', inputs: { NUM: sh(0) } },
@@ -439,7 +481,7 @@ L.makeToolbox = function (devId) {
       { kind: 'block', type: 'serial_line', inputs: { TEXT: shText('Hello') } },
       { kind: 'block', type: 'serial_number', inputs: { NUM: sh(0) } } ] }
   ];
-  return { kind: 'categoryToolbox', contents: devId === 'remote' ? cats.filter(c => c.name !== 'Cutebot Pro') : cats };
+  return { kind: 'categoryToolbox', contents: devId === 'remote' ? cats.filter(c => c.name !== 'Cutebot Pro' && c.name !== 'HuskyLens') : cats };
 };
 
 /* ---------- theme from page tokens ---------- */

@@ -335,6 +335,7 @@ function drawArena() {
   c.lineTo(sx + Math.sin(bot.a + .13) * d, sy - Math.cos(bot.a + .13) * d); c.closePath(); c.fill();
   c.strokeStyle = 'rgba(47,108,246,.55)'; c.setLineDash([1.2, 1]); c.lineWidth = .35;
   c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + Math.sin(bot.a) * d, sy - Math.cos(bot.a) * d); c.stroke(); c.setLineDash([]);
+  if (L.huskyOn && L.husky) L.husky.drawFov(c);
   drawRobot(c);
   if (L.drawTop) L.drawTop(c, s);
 }
@@ -397,6 +398,7 @@ function drawRobot(c) {
     roundRect(c, side > 0 ? 0 : -L.ARM_LEN, -.45, L.ARM_LEN, .9, .4); c.fill(); c.stroke();
     c.fillStyle = '#6b5200'; c.beginPath(); c.arc(0, 0, .6, 0, 7); c.fill(); c.restore();
   });
+  if (L.huskyOn) { c.fillStyle = '#e7660b'; roundRect(c, -2.4, -9.4, 4.8, 2.2, .5); c.fill(); c.fillStyle = '#111'; c.beginPath(); c.arc(0, -9.1, .7, 0, 7); c.fill(); }     // the HuskyLens
   // the 4-way line sensor
   c.fillStyle = 'rgba(0,0,0,.55)'; roundRect(c, -3, -SENSOR_FWD - .7, 6, 1.4, .5); c.fill();
   SENSOR_X.forEach((sx, ch) => {

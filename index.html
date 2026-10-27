@@ -163,6 +163,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .note.big { font-size: 14px; padding: 12px 0; }
 .note a, .dialog a { color: var(--accent); }
 
+.hl-wrap { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+#hlView { width: 320px; max-width: 100%; aspect-ratio: 4 / 3; height: auto; border-radius: 8px; background: #2a332e; flex: none; }
+.hl-learned { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.hl-learned li { display: flex; gap: 8px; align-items: center; color: var(--ink); font-size: 13px; }
+.hl-learned i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.25); }
 .irwrap { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
 .irpad { display: grid; grid-template-columns: repeat(3, 52px); gap: 6px; background: #1c1f24; padding: 12px; border-radius: 18px; }
 .irb { height: 40px; border-radius: 10px; border: 0; background: #3a3f47; color: #f1f3f5; font-weight: 600; cursor: pointer; font-size: 14px; touch-action: none; }
@@ -490,6 +495,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
         <button role="tab" data-tab="remote" aria-selected="false">Remote</button>
         <button role="tab" data-tab="ir" aria-selected="false">IR remote</button>
         <button role="tab" data-tab="data" aria-selected="false">Data</button>
+        <button role="tab" data-tab="husky" aria-selected="false">HuskyLens</button>
         <button role="tab" data-tab="challenges" aria-selected="false">Challenges</button>
       </div>
 
@@ -556,6 +562,19 @@ button, select, input, textarea { font: inherit; color: inherit; }
           <button class="btn small" id="btnDataCopy">Copy CSV</button>
           <button class="btn small" id="btnDataCSV">Download CSV</button>
           <span class="note">Values from <b>serial write value</b> are graphed too.</span>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="tab-husky" role="tabpanel" hidden>
+        <div class="hl-wrap">
+          <canvas id="hlView" aria-label="What the HuskyLens camera sees"></canvas>
+          <div class="sensors">
+            <span class="sec-label">Learned colors</span>
+            <ol class="hl-learned" id="hlLearned"></ol>
+            <button class="btn small" id="hlLearn" title="Like pressing the learning button on the real HuskyLens">Learn the color in the center box</button>
+            <div class="row-actions"><button class="btn small" id="hlForget">Forget all</button><button class="btn small" id="hlDefault">Use red, blue, yellow, green</button></div>
+            <p class="note">A virtual HuskyLens on the front of the robot, 9 cm up, tilted 25° down. Its screen is 320 × 240 pixels. Only <b>Color Recognition</b> is simulated so far. On the real HuskyLens, you teach colors with its own button.</p>
+          </div>
         </div>
       </div>
 
@@ -645,12 +664,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="vendor/blockly/blocks_compressed.js"></script>
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
-<script src="js/data.js?v=20261027e"></script>
-<script src="js/sim.js?v=20261027e"></script>
-<script src="js/runtime.js?v=20261027e"></script>
-<script src="js/blocks.js?v=20261027e"></script>
-<script src="js/content.js?v=20261027e"></script>
-<script src="js/missions.js?v=20261027e"></script>
-<script src="js/app.js?v=20261027e"></script>
+<script src="js/data.js?v=20261027h"></script>
+<script src="js/sim.js?v=20261027h"></script>
+<script src="js/runtime.js?v=20261027h"></script>
+<script src="js/blocks.js?v=20261027h"></script>
+<script src="js/content.js?v=20261027h"></script>
+<script src="js/missions.js?v=20261027h"></script>
+<script src="js/huskylens.js?v=20261027h"></script>
+<script src="js/app.js?v=20261027h"></script>
 </body>
 </html>

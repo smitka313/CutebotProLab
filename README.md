@@ -82,6 +82,16 @@ Good to know:
 - **Practice first with the lessons** "Listen with the microphone" and "Servo arms". To use the arms outside a mission, tick **Options → Servo arms on S1 and S2**.
 - **Write your own code.** The competition rules say students write all the code, so the lab has no mission answers. The hints give ideas, not programs.
 
+## HuskyLens camera
+
+Some teams add a DFRobot HuskyLens AI camera to find things by color. The lab has a virtual HuskyLens on the front of the robot. So far it does **Color Recognition** only.
+
+1. Open the **HuskyLens** category and use the same blocks as MakeCode: **initialize I2C**, **switch algorithm to Color Recognition**, then in **forever** **request data once**, and read the result with blocks like **check if ID 1 frame is on screen** and **get X center of ID 1 frame**.
+2. Open the **HuskyLens** tab under the arena to see what the camera sees. Frames are drawn like on the real screen (320 × 240 pixels: X goes left to right, Y top to bottom).
+3. The lab starts with four learned colors: ID1 red, ID2 blue, ID3 yellow, ID4 green. To teach your own, put a colored object in the center box and press **Learn**.
+
+On Delta, using color recognition earns the rubric's 5 points for a smart camera. For the real robot, also add the DFRobot **HuskyLens** extension in MakeCode, and teach colors with the camera's own button. Real cameras struggle with glare and dim light, so test on the real field.
+
 ## Turning in your work
 
 You turn in one file that holds your project and proof of every challenge you passed and every mission you scored. A yellow number on the **Turn in** button shows how many passed challenges you haven't turned in yet.

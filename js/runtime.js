@@ -115,6 +115,14 @@ const E = {
   Dimension: { X: 0, Y: 1, Z: 2, Strength: 3 },
   DetectedSound: { Loud: 'loud', Quiet: 'quiet' },
   NeoPixelMode: { RGB: 0, RGBW: 1, RGB_RGB: 2 },
+  // enums from DFRobot's HuskyLens extension (pxt-DFRobot_HuskyLens)
+  Content1: { xCenter: 1, yCenter: 2, width: 3, height: 4 },
+  Content2: { xOrigin: 1, yOrigin: 2, xTarget: 3, yTarget: 4 },
+  Content3: { ID: 5, xCenter: 1, yCenter: 2, width: 3, height: 4 },
+  Content4: { ID: 5, xOrigin: 1, yOrigin: 2, xTarget: 3, yTarget: 4 },
+  HUSKYLENSResultType_t: { HUSKYLENSResultBlock: 1, HUSKYLENSResultArrow: 2 },
+  protocolAlgorithm: { ALGORITHM_FACE_RECOGNITION: 0, ALGORITHM_OBJECT_TRACKING: 1, ALGORITHM_OBJECT_RECOGNITION: 2, ALGORITHM_LINE_TRACKING: 3,
+    ALGORITHM_COLOR_RECOGNITION: 4, ALGORITHM_TAG_RECOGNITION: 5, OBJECTCLASSIFICATION: 6, QRRECOGMITION: 7, BARCODERECOGNITION: 8 },
   NeoPixelColors: Object.fromEntries(L.NP_COLORS.map(c => [c[1], c[2]])),
   SoundThreshold: { Loud: 'loud', Quiet: 'quiet' },
   DigitalPin: { P0: 0, P1: 1, P2: 2, P8: 8, P12: 12, P13: 13, P14: 14, P15: 15, P16: 16 },
@@ -328,7 +336,31 @@ function makeApi(dev) {
     colors: (c) => +c || 0,
     rgb: (r, g, b) => (clamp(r, 0, 255) << 16) | (clamp(g, 0, 255) << 8) | clamp(b, 0, 255)
   };
-  return { ...E, __hl, basic, loops, input, music, led, radio, serial, CutebotPro, neopixel };
+  // HuskyLens: results are a snapshot taken by request(), like the real I2C protocol. Frames only (no arrows yet).
+  const hl = () => dev.hl || (dev.hl = { mode: -1, requests: 0, result: [], learned: [] });
+  const field = (b, k) => b ? [0, b.x, b.y, b.w, b.h, b.id][k] ?? -1 : -1;
+  const nearest = () => hl().result.slice().sort((a, b) => Math.hypot(a.x - 160, a.y - 120) - Math.hypot(b.x - 160, b.y - 120))[0];
+  const huskylens = {
+    initI2c: async () => { await sleep(20); },
+    initMode: async (m) => { await sleep(60); hl().mode = +m; },
+    request: () => { check(); const h = hl(); h.requests++; h.result = isRobot && h.mode === L.husky.COLOR_ALG ? L.husky.detect(h.learned, L.real.active) : []; },
+    getIds: () => hl().mode === L.husky.COLOR_ALG ? hl().learned.length : 0,
+    isAppear_s: (t) => t === 1 && hl().result.length > 0,
+    readBox_s: (k) => field(nearest(), k),
+    readArrow_s: () => -1,
+    isLearned: (id) => id >= 1 && id <= huskylens.getIds(),
+    isAppear: (id, t) => t === 1 && hl().result.some(b => b.id === id),
+    readeBox: (id, k) => field(hl().result.find(b => b.id === id), k),
+    readeArrow: () => -1,
+    getBox: (t) => t === 1 ? hl().result.length : 0,
+    readBox_ss: (i, k) => field(hl().result[Math.round(i) - 1], k),
+    readArrow_ss: () => -1,
+    getBox_S: (id, t) => t === 1 ? hl().result.filter(b => b.id === id).length : 0,
+    readeBox_index: (id, i, k) => field(hl().result.filter(b => b.id === id)[Math.round(i) - 1], k),
+    writeLearn1: (id) => { if (isRobot && hl().mode === L.husky.COLOR_ALG) L.husky.learnCenter(hl().learned, id); },
+    forgetLearn: () => { hl().learned = []; }
+  };
+  return { ...E, __hl, basic, loops, input, music, led, radio, serial, CutebotPro, neopixel, huskylens };
 }
 L.API_NAMES = Object.keys(makeApi(makeDevice('x', 'x')));
 
@@ -420,7 +452,10 @@ L.runAll = function (codes, opts = {}) {
   L.seedRand(S.seed);
   // starting sensor values are part of a run, so a replay starts from the same place
   if (opts.init) for (const id of ['robot', 'remote']) if (opts.init[id]) { Object.assign(devices[id].env, opts.init[id].env); Object.assign(devices[id].accel, opts.init[id].accel); }
-  S.init = { robot: { env: { ...devices.robot.env }, accel: { ...devices.robot.accel } }, remote: { env: { ...devices.remote.env }, accel: { ...devices.remote.accel } } };
+  S.init = { robot: { env: { ...devices.robot.env }, accel: { ...devices.robot.accel } }, remote: { env: { ...devices.remote.env }, accel: { ...devices.remote.accel } },
+    husky: (opts.init && opts.init.husky ? opts.init.husky : L.husky.learned).slice() };      // the HuskyLens's learned colors are part of the run
+  for (const d of Object.values(devices)) d.hl = { mode: -1, requests: 0, result: [], learned: S.init.husky.slice() };
+  L.huskyRun = devices.robot.hl;
   bot.clock = 0; bot.bumpT = -1e9;
   RT.running = true; RT.fast = !!opts.fast; RT.ticks = 0;
   bot.lights = ['#000000', '#000000']; bot.under = [0, 0]; bot.extMotor = 0; bot.spin = [0, 0, 0, 0]; bot.wl = bot.wr = 0;
