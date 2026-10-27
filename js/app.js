@@ -72,7 +72,7 @@ function projectData() {
 }
 function loadXmlInto(w, xml) { w.clear(); Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xml), w); }
 function xmlToState(xml) { const w = new Blockly.Workspace(); loadXmlInto(w, xml); const s = Blockly.serialization.workspaces.save(w); w.dispose(); return s; }
-const MAPS_OK = (m) => !!L.MAPS[m];
+const MAPS_OK = (m) => !!L.MAPS[m] && !(L.MISSION_MAPS && L.MISSION_MAPS.has(m));      // a mission field only opens with its mission
 function loadProject(p) {
   L.stopAll(); exitChallenge(true);
   proj.programs = { robot: null, remote: null };
@@ -205,7 +205,7 @@ const KEYWORDS = {
   cb_stop: 'stop brake halt', cb_sonar: 'distance ultrasonic sonar obstacle', cb_tracking: 'line follow sensor track 4-way',
   cb_track_read: 'line follow sensor track read', cb_track_ch: 'line sensor channel track', cb_track_gray: 'line sensor gray grey brightness', cb_offset: 'line follow offset position',
   cb_headlights: 'light led color headlight', cb_headlights_rgb: 'light led color headlight rgb', cb_servo: 'servo expansion arm', cb_cservo: 'servo continuous spin', cb_ext_motor: 'expansion motor',
-  cb_ir_on: 'infrared remote ir', cb_ir_button: 'infrared remote ir', mb_pause: 'wait delay sleep', mb_on_button: 'button press', radio_send_number: 'radio send', mb_play_tone: 'sound music note beep'
+  cb_ir_on: 'infrared remote ir', cb_ir_button: 'infrared remote ir', mb_on_sound: 'sound microphone loud clap noise', mb_sound_level: 'sound microphone level noise', mb_sound_threshold: 'sound microphone threshold loud', mb_pause: 'wait delay sleep', mb_on_button: 'button press', radio_send_number: 'radio send', mb_play_tone: 'sound music note beep'
 };
 const searchIndex = {};
 function indexFor(devId) {
@@ -251,7 +251,10 @@ function setRunUI() {
   b.title = RT.running && codeStale ? 'You changed the code. Stop and run again to use it.' : '';
 }
 /** Simulator code for a saved program, generated the same way the teacher's check will generate it. */
+// every block type in a saved program (the V2X missions read this for their bonus tiers)
+function blockTypes(state) { const out = new Set(); const walk = (o) => { if (!o || typeof o !== 'object') return; if (typeof o.type === 'string') out.add(o.type); for (const v of Object.values(o)) walk(v); }; walk(state); return out; }
 function codesFor(programs) {
+  L.runBlockTypes = blockTypes(programs.robot);
   const remoteWs = programs.remote ? L.headless(programs.remote) : null;
   return { robot: L.generate(L.headless(programs.robot), false), remote: remoteWs && L.hasStatementCode(remoteWs) ? L.generate(remoteWs, false) : null };
 }
@@ -276,7 +279,7 @@ function run() {
 function resetAll(keepChallenge) {
   L.stopAll();
   Object.values(devices).forEach(d => d.display.fill(0));
-  bot.lights = ['#000000', '#000000']; bot.servo = [90, 90, 90, 90]; bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
+  bot.lights = ['#000000', '#000000']; bot.servo = [90, 90, 90, 90]; bot.servoT = [90, 90, 90, 90]; bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
   L.placeRobot();
   hideError();
   if (challenge && !keepChallenge) { crun = L.makeChallengeRun(challenge); if (challenge.setup) challenge.setup(crun.st); replayOf = null; renderChallengeStrip(true); }
@@ -511,12 +514,17 @@ L.drawOverlay = (c, s) => {
   }
 };
 const hintsShown = {};      // challenge id -> how many hints the student has opened
+// mission props (a moving lead box, servo arms, room noise) exist only while their mission is open
+function clearMission() { L.dyn = []; L.armsOn = false; L.missionNoise = null; L.soundBurst = null; }
+L.drawTop = (c, s) => { if (challenge && crun && challenge.drawTop) challenge.drawTop(c, s, crun.st); };
+const resultText = (ch, p) => ch.scored ? `${p.score} pts` : `${p.t} s`;
 function enterArena(ch) {
+  clearMission(); L.armsOn = !!ch.arms;
   L.pristine = true; L.startOverride = ch.start || null;
   setMap(ch.map, true);
   L.stopAll();
   Object.values(devices).forEach(d => d.display.fill(0));
-  bot.lights = ['#000000', '#000000']; bot.servo = [90, 90, 90, 90]; bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
+  bot.lights = ['#000000', '#000000']; bot.servo = [90, 90, 90, 90]; bot.servoT = [90, 90, 90, 90]; bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
   L.placeRobot();
 }
 function armChallenge(id) {
@@ -530,7 +538,7 @@ function armChallenge(id) {
 function exitChallenge(quiet) {
   if (!challenge) return;
   L.stopAll();
-  challenge = null; crun = null; replayOf = null; L.pristine = false; L.startOverride = null; L.activeRun = null;
+  challenge = null; crun = null; replayOf = null; L.pristine = false; L.startOverride = null; L.activeRun = null; clearMission();
   document.querySelectorAll('#toolSeg button').forEach(b => b.disabled = false); $('btnSetStart').disabled = false;
   $('challengeStrip').hidden = true; $('goalCard').hidden = true;
   L.buildFloor(); if (!quiet) resetAll();
@@ -542,26 +550,30 @@ function finishChallenge() {
   if (r.state === 'pass' && !replayOf) {
     const t = +r.t.toFixed(2);
     const proof = { c: ch.id, t, steps: r.n, seed: S.seed, real: L.real.active, init: S.init, inputs: S.record.slice(), programs: runPrograms, at: Date.now(), v: L.VERSION };
+    if (ch.scored) proof.score = r.score;
     const old = proofs[ch.id];
-    const better = !old || t < old.t || (t === old.t && proof.real && !old.real);
+    // missions keep the highest score (then the faster time); challenges keep the fastest time
+    const better = !old || (ch.scored ? proof.score > (old.score || 0) || (proof.score === old.score && t < old.t) : t < old.t) || (t === old.t && proof.score === old.score && proof.real && !old.real);
     if (better) { proofs[ch.id] = proof; writeJSON(PROOFS, proofs); }
-    r.msg = better ? (old ? 'New best time! Proof saved.' : 'Proof saved.') : `Your best is ${old.t} s.`;
+    const what = ch.scored ? 'score' : 'time';
+    r.msg = (r.msg ? r.msg + ' ' : '') + (better ? (old ? `New best ${what}! Proof saved.` : 'Proof saved.') : `Your best is ${resultText(ch, old)}.`);
     lessonFlags.passed.add(ch.id);
-    celebrate = { ch, t, better, best: better ? t : old.t, real: L.real.active };
+    celebrate = { ch, t, better, best: resultText(ch, better ? proof : old), result: resultText(ch, proof), real: L.real.active };
   }
-  if (replayOf) r.msg = r.state === 'pass' ? `Replay confirmed: passed in ${r.t.toFixed(2)} s.` : `Replay did not pass: ${r.msg}`;
+  if (replayOf) r.msg = r.state === 'pass' ? `Replay confirmed: ${ch.scored ? `${r.score} pts in ` : 'passed in '}${r.t.toFixed(2)} s.` : `Replay did not pass: ${r.msg}`;
   L.stopAll();
   renderChallengeStrip(true); renderChallengeList(); updateTurnBadge();
   lessonCheckSoon();
   if (celebrate) setTimeout(() => showPassed(celebrate), 350);
 }
-function showPassed({ ch, t, better, best, real }) {
-  const next = L.CHALLENGES.find(c => !proofs[c.id] && c.id !== ch.id);
+function showPassed({ ch, t, better, best, result, real }) {
+  const next = L.CHALLENGES.find(c => !proofs[c.id] && c.id !== ch.id && c.group === ch.group);
   const actions = [['Stay here', () => {}]];
   if (next) actions.push([`Next: ${next.title}`, () => armChallenge(next.id)]);
   actions.push(['Turn in now', () => { openTurnIn(); return false; }, true]);
-  modal('Challenge passed!', `<div class="passed"><div class="passed-big" aria-hidden="true">✓</div><div><b>${esc(ch.title)}</b> in <b>${t} s</b>${real ? ' in real-world mode' : ''}.<br>
-    ${better ? 'Your proof is saved in this browser.' : `Your best time is still ${best} s.`} Turn in your work so your teacher can check it.</div></div>`, actions);
+  const head = ch.scored ? `<b>${esc(ch.title)}</b>: <b>${esc(result)}</b> of ${ch.max} (practice score) in ${t} s` : `<b>${esc(ch.title)}</b> in <b>${t} s</b>`;
+  modal(ch.scored ? 'Mission scored!' : 'Challenge passed!', `<div class="passed"><div class="passed-big" aria-hidden="true">✓</div><div>${head}${real ? ' in real-world mode' : ''}.<br>
+    ${better ? 'Your proof is saved in this browser.' : `Your best is still ${esc(best)}.`} Turn in your work so your teacher can check it.</div></div>`, actions);
 }
 let stripKey = '';
 function renderChallengeStrip(force) {
@@ -572,9 +584,13 @@ function renderChallengeStrip(force) {
   const badge = s === 'pass' ? '<span class="badge pass">Passed</span>' : s === 'fail' ? '<span class="badge fail">Not yet</span>' : s === 'running' ? '<span class="badge run">Running</span>' : s === 'stopped' ? '<span class="badge">Stopped</span>' : '<span class="badge">Ready</span>';
   const prog = ch.progress ? ch.progress(crun.st) : '';
   const nh = hintsShown[ch.id] || 0, hints = ch.hints || [];
-  const key = [s, crun.t.toFixed(1), prog, crun.msg, !!replayOf, nh].join('|');
+  const check = ch.checklist ? ch.checklist(crun.st) : null, score = ch.scored ? (crun.score ?? ch.score(crun.st)) : null;
+  const key = [s, crun.t.toFixed(1), prog, crun.msg, !!replayOf, nh, JSON.stringify(check), score].join('|');
   if (key === stripKey && !force) return; stripKey = key;
   el.innerHTML = `<div class="cs-top"><b>${replayOf ? 'Replay: ' + esc(replayOf) + ' · ' : ''}${esc(ch.title)}</b>${badge}${L.real.active ? '<span class="badge run">Real-world</span>' : ''}<span class="cs-time">${crun.t.toFixed(1)} s / ${ch.limit} s</span><button class="btn small" id="btnExitCh">${replayOf ? 'Close replay' : 'Exit challenge'}</button></div>
+    ${ch.scored ? `<div class="cs-score"><b>${score}</b> / ${ch.max} practice points${ch.due ? ` · ${esc(ch.due)}` : ''}</div>` : ''}
+    ${check ? `<ul class="cs-check">${check.map(([t, ok, pts]) => `<li class="${ok === true ? 'ok' : ok === false && s !== 'ready' && s !== 'running' ? 'no' : ''}"><span aria-hidden="true">${ok === true ? '✓' : ok === false && s !== 'ready' && s !== 'running' ? '✗' : '○'}</span>${esc(t)}${pts ? ` <small>${pts} pts</small>` : ''}</li>`).join('')}</ul>` : ''}
+    ${ch.bonus && s !== 'running' ? `<div class="cs-goal">Bonus: ${esc(ch.bonus())}. Judges award bonus points.</div>` : ''}
     <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>
     ${!replayOf && hints.length && s !== 'running' ? `<div class="cs-hints">${hints.slice(0, nh).map((h, i) => `<p><b>Hint ${i + 1}:</b> ${esc(h)}</p>`).join('')}${nh < hints.length ? `<button class="btn small" id="btnHint">${nh ? 'Another hint' : 'Need a hint?'}</button>` : ''}</div>` : ''}`;
   $('btnExitCh').onclick = () => { const back = !!replayOf; exitChallenge(); if (back) openTeacher(); };
@@ -585,14 +601,19 @@ function renderChallengeStrip(force) {
   if (showCard) card.innerHTML = `<span class="sec-label">Goal</span><b>${esc(ch.goal)}</b><span class="gc-hint">${s === 'ready' ? 'Write your program, then press Run.' : 'Change your program and press Run to try again.'}</span>`;
 }
 function renderChallengeList() {
-  $('chList').innerHTML = L.CHALLENGES.map(ch => {
+  const row = (ch) => {
     const p = proofs[ch.id];
-    return `<li class="ch-row${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b>${ch.level ? `<span class="lvl lvl-${ch.level.toLowerCase()}">${esc(ch.level)}</span>` : ''}<span class="ch-map">${esc(L.MAPS[ch.map].name)}</span><p>${esc(ch.goal)}</p></div>
-      <div class="ch-side">${p ? `<span class="badge pass">Best ${p.t} s${p.real ? ' · real-world' : ''}</span>` : '<span class="badge">Not passed</span>'}<button class="btn small" data-ch="${ch.id}">${challenge && challenge.id === ch.id ? 'Restart' : 'Start'}</button></div></li>`;
-  }).join('');
+    return `<li class="ch-row${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b>${ch.level && !ch.scored ? `<span class="lvl lvl-${ch.level.toLowerCase()}">${esc(ch.level)}</span>` : ''}${ch.due ? `<span class="ch-map">${esc(ch.due)}</span>` : `<span class="ch-map">${esc(L.MAPS[ch.map].name)}</span>`}<p>${esc(ch.goal)}</p></div>
+      <div class="ch-side">${p ? `<span class="badge pass">Best ${esc(resultText(ch, p))}${p.real ? ' · real-world' : ''}</span>` : `<span class="badge">${ch.scored ? 'No score yet' : 'Not passed'}</span>`}<button class="btn small" data-ch="${ch.id}">${challenge && challenge.id === ch.id ? 'Restart' : 'Start'}</button></div></li>`;
+  };
+  const plain = L.CHALLENGES.filter(c => c.group !== 'v2x'), v2x = L.CHALLENGES.filter(c => c.group === 'v2x');
+  $('chList').innerHTML = plain.map(row).join('') +
+    `<li class="ch-group"><span class="sec-label">V2X Senior missions 2026-27</span><p class="note">Practice versions of the Square One V2X IVD tasks, on fields sized from the parameters. Scores follow each rubric but are practice scores: on the real field, the judges decide. Golf (Innovative Mobility Exhibition) has an open 4 × 8 ft space in the arena list.</p></li>` +
+    v2x.map(row).join('');
   $('chList').querySelectorAll('button[data-ch]').forEach(b => b.onclick = () => armChallenge(b.dataset.ch));
   const pend = notTurnedIn().length;
-  $('chCount').textContent = `${Object.keys(proofs).length} of ${L.CHALLENGES.length} challenges passed.${pend ? ` ${pend} not turned in yet.` : ''}`;
+  const nPlain = plain.filter(c => proofs[c.id]).length, nV = v2x.filter(c => proofs[c.id]).length;
+  $('chCount').textContent = `${nPlain} of ${plain.length} challenges passed · ${nV} of ${v2x.length} missions scored.${pend ? ` ${pend} not turned in yet.` : ''}`;
 }
 
 /* ---------- checking a proof (teacher) ---------- */
@@ -613,12 +634,12 @@ async function verifyProof(proof, { fast = true, who = '' } = {}) {
   await L.whenStopped();
   verifying = false;
   const r = crun, out = r.state === 'pass'
-    ? (r.n === proof.steps && Math.abs(r.t - proof.t) < 0.006
-      ? { status: 'ok', t: +r.t.toFixed(2), msg: '' }
-      : { status: 'differs', t: +r.t.toFixed(2), msg: `The replay passed in ${r.t.toFixed(2)} s, but the file says ${esc(proof.t)} s. The file may have been edited.` })
+    ? (r.n === proof.steps && Math.abs(r.t - proof.t) < 0.006 && (!ch.scored || r.score === proof.score)
+      ? { status: 'ok', t: +r.t.toFixed(2), score: r.score, msg: '' }
+      : { status: 'differs', t: +r.t.toFixed(2), score: r.score, msg: ch.scored ? `The replay scored ${r.score} pts in ${r.t.toFixed(2)} s, but the file says ${esc(proof.score)} pts in ${esc(proof.t)} s. The file may have been edited.` : `The replay passed in ${r.t.toFixed(2)} s, but the file says ${esc(proof.t)} s. The file may have been edited.` })
     : { status: 'fail', msg: r.state === 'fail' ? r.msg : (lastError || 'The replay did not finish the challenge.') };
   if (proof.v !== L.VERSION) out.msg = (out.msg ? out.msg + ' ' : '') + `Made with version ${esc(proof.v || '?')}; this page is version ${L.VERSION}.`;
-  challenge = null; crun = null; L.pristine = false; L.startOverride = null; L.activeRun = null;
+  challenge = null; crun = null; L.pristine = false; L.startOverride = null; L.activeRun = null; clearMission();
   return out;
 }
 
@@ -627,7 +648,7 @@ function openTurnIn() {
   const st = readJSON(STUDENT, { name: '', period: '' });
   const list = L.CHALLENGES.map(ch => {
     const p = proofs[ch.id], fresh = p && (!turned[p.c] || turned[p.c] < p.at);
-    return `<li><label class="ti-row"><input type="checkbox" value="${ch.id}" ${p ? 'checked' : 'disabled'}><span><b>${esc(ch.title)}</b>${p ? ` · ${p.t} s${p.real ? ' · real-world mode' : ''}` : ' · not passed yet'}</span>${fresh ? '<span class="badge run">New</span>' : p ? '<span class="badge">Turned in before</span>' : ''}</label></li>`;
+    return `<li><label class="ti-row"><input type="checkbox" value="${ch.id}" ${p ? 'checked' : 'disabled'}><span><b>${esc(ch.title)}</b>${p ? ` · ${esc(resultText(ch, p))}${p.real ? ' · real-world mode' : ''}` : ch.scored ? ' · no score yet' : ' · not passed yet'}</span>${fresh ? '<span class="badge run">New</span>' : p ? '<span class="badge">Turned in before</span>' : ''}</label></li>`;
   }).join('');
   modal('Turn in your work', `
     <div class="ti-form"><label for="tiName">Your name <input type="text" id="tiName" maxlength="60" autocomplete="name" value="${esc(st.name)}" placeholder="First and last name"></label>
@@ -714,7 +735,7 @@ function renderTeacher() {
     const cells = L.CHALLENGES.map(c => {
       const r = s.results[c.id]; if (!r) return '<td class="tc none">–</td>';
       const p = d.proofs.find(x => x && x.c === c.id), [cls, mark] = CELL[r.status] || CELL.fail;
-      const label = r.status === 'ok' || r.status === 'differs' ? `${r.t} s` : r.status === 'pending' ? '' : 'failed';
+      const label = r.status === 'ok' || r.status === 'differs' ? (c.scored ? `${r.score} pts` : `${r.t} s`) : r.status === 'pending' ? '' : 'failed';
       return `<td class="tc"><button class="tcell ${cls}" data-sub="${s.id}" data-c="${c.id}" title="${esc(r.msg || (r.status === 'ok' ? 'Checked: the replay passed with the same time.' : ''))}">${mark} ${esc(label)}${p && p.real ? ' <small>real</small>' : ''}</button></td>`;
     }).join('');
     const dup = dups.get(s.id);
@@ -743,9 +764,10 @@ function openProofDetail(subId, cid) {
   const s = subs.find(x => x.id === subId); if (!s) return;
   const p = s.data.proofs.find(x => x && x.c === cid), r = s.results[cid], ch = L.CHALLENGES.find(c => c.id === cid);
   if (!p || !ch) return;
-  const status = r.status === 'ok' ? `<span class="badge pass">Checked · ${r.t} s</span>` : r.status === 'differs' ? `<span class="badge run">Passed in ${r.t} s</span>` : r.status === 'pending' ? '<span class="badge">Checking…</span>' : '<span class="badge fail">Did not pass</span>';
+  const v = ch.scored ? `${r.score} pts in ${r.t} s` : `${r.t} s`;
+  const status = r.status === 'ok' ? `<span class="badge pass">Checked · ${v}</span>` : r.status === 'differs' ? `<span class="badge run">Replay: ${v}</span>` : r.status === 'pending' ? '<span class="badge">Checking…</span>' : '<span class="badge fail">Did not pass</span>';
   modal(`${s.data.student?.name || s.file}: ${ch.title}`, `<p>${status} ${p.real ? '<span class="badge run">Real-world mode</span>' : ''}</p>
-    <p class="note big" style="padding:0">Time in the file: <b>${esc(p.t)} s</b> · Recorded ${p.at ? esc(new Date(p.at).toLocaleString()) : ''} · ${p.inputs ? p.inputs.length : 0} button presses during the run.${r.msg ? '<br>' + esc(r.msg) : ''}</p>
+    <p class="note big" style="padding:0">${ch.scored ? `Score in the file: <b>${esc(p.score)} pts</b> · ` : ''}Time in the file: <b>${esc(p.t)} s</b> · Recorded ${p.at ? esc(new Date(p.at).toLocaleString()) : ''} · ${p.inputs ? p.inputs.length : 0} button presses during the run.${r.msg ? '<br>' + esc(r.msg) : ''}</p>
     <span class="sec-label">Program used for this run</span>${codeBlocks(p.programs || {})}`,
     [['Close', () => {}], ['Watch the replay', () => { closeTeacher(); verifyProof(p, { fast: false, who: s.data.student?.name || s.file }); }, true]], true);
 }
@@ -762,7 +784,7 @@ function resultsCSV() {
   for (const s of subs) {
     const d = s.data;
     rows.push([d.student?.name, d.student?.period, d.project.name, d.at ? new Date(d.at).toISOString() : '',
-      ...L.CHALLENGES.map(c => { const r = s.results[c.id]; if (!r) return ''; return r.status === 'ok' ? `checked ${r.t} s` : r.status === 'differs' ? `passed ${r.t} s (time differs)` : r.status === 'pending' ? 'not checked yet' : 'did not pass'; }),
+      ...L.CHALLENGES.map(c => { const r = s.results[c.id]; if (!r) return ''; const v = c.scored ? `${r.score} pts` : `${r.t} s`; return r.status === 'ok' ? `checked ${v}` : r.status === 'differs' ? `${v} (differs from the file)` : r.status === 'pending' ? 'not checked yet' : 'did not pass'; }),
       (dups.get(s.id) || []).join('; ')].map(q).join(','));
   }
   return rows.join('\n') + '\n';
@@ -777,7 +799,7 @@ function openProgress() {
   }).join('');
   const chRows = L.CHALLENGES.map(ch => {
     const p = proofs[ch.id], turnedIn = p && turned[p.c] >= p.at;
-    const status = !p ? '<span class="badge">Not passed</span>' : `<span class="badge pass">Passed · ${p.t} s${p.real ? ' · real-world' : ''}</span>${turnedIn ? '<span class="badge">Turned in</span>' : '<span class="badge run">Not turned in</span>'}`;
+    const status = !p ? `<span class="badge">${ch.scored ? 'No score yet' : 'Not passed'}</span>` : `<span class="badge pass">${ch.scored ? 'Best' : 'Passed ·'} ${esc(resultText(ch, p))}${p.real ? ' · real-world' : ''}</span>${turnedIn ? '<span class="badge">Turned in</span>' : '<span class="badge run">Not turned in</span>'}`;
     return `<li class="pg-row"><span class="pg-name"><b>${esc(ch.title)}</b><span class="note">${esc(ch.level || '')}</span></span><span class="pg-badges">${status}</span></li>`;
   }).join('');
   const nextLesson = L.LESSONS.find(ls => { const st = lessonState[ls.id]; return !st || !st.done || st.done.length < ls.steps.length; });
@@ -1045,7 +1067,11 @@ function init() {
   // sim controls
   $('btnRun').onclick = () => { if (RT.running) L.stopAll(); else if (replayOf) toast('Close the replay first.'); else run(); };
   $('btnReset').onclick = () => { if (replayOf) { exitChallenge(); return; } resetAll(); };
-  $('mapSel').onchange = (e) => { if (challenge) exitChallenge(true); setMap(e.target.value); save(); };
+  $('mapSel').onchange = (e) => {
+    const m = L.CHALLENGES.find(c => c.group === 'v2x' && c.map === e.target.value);
+    if (m) { armChallenge(m.id); showTab('challenges'); return; }      // a mission field opens its mission
+    if (challenge) exitChallenge(true); setMap(e.target.value); save();
+  };
   $('speedSel').onchange = (e) => { ui.speed = e.target.value; applyUI(); writeJSON(UISTORE, ui); };
   $('btnReal').onclick = () => { ui.real = !ui.real; applyUI(); writeJSON(UISTORE, ui); toast(ui.real ? 'Real-world mode on: uneven motors, a stall below 15 % power, noisy sensors, like a real Cutebot Pro. The encoder (PID) blocks correct for the motors. Starts with the next Run.' : 'Real-world mode off: a perfect robot with exact motors and sensors. Starts with the next Run.'); };
   $('btnEditArena').onclick = () => setEditArena(!ui.editArena);
@@ -1071,6 +1097,8 @@ function init() {
   const slider = (id, out, fmt, fn) => { $(id).oninput = (e) => { $(out).textContent = fmt(e.target.value); fn(+e.target.value); }; };
   slider('temp', 'tempOut', v => v + ' °C', v => L.input('e', 'robot', 'temp', v));
   slider('light', 'lightOut', v => v, v => L.input('e', 'robot', 'light', v));
+  slider('sound', 'soundOut', v => v, v => L.input('e', 'robot', 'sound', v));
+  $('btnLoud').onclick = () => L.input('n', 'robot', 210, 500);
   slider('tiltX', 'tiltXOut', v => v, v => L.input('a', 'remote', 'x', v));
   slider('tiltY', 'tiltYOut', v => v, v => L.input('a', 'remote', 'y', v));
   $('btnTiltZero').onclick = () => { ['tiltX', 'tiltY'].forEach(id => { $(id).value = 0; $(id).dispatchEvent(new Event('input')); }); };

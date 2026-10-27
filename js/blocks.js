@@ -42,7 +42,7 @@ const hat = (type, msg, args, colour, tooltip) => ({ type, message0: msg + ' %' 
 const stmt = (type, msg, args, colour, tooltip, extra = {}) => ({ type, message0: msg, args0: args, previousStatement: null, nextStatement: null, colour, tooltip, inputsInline: true, ...extra });
 const val = (type, msg, args, colour, output, tooltip) => ({ type, message0: msg, args0: args, output, colour, tooltip, inputsInline: true });
 
-const HATS = L.HATS = new Set(['mb_on_start', 'mb_forever', 'mb_on_button', 'mb_on_gesture', 'mb_every', 'cb_ir_on',
+const HATS = L.HATS = new Set(['mb_on_start', 'mb_forever', 'mb_on_button', 'mb_on_gesture', 'mb_on_sound', 'mb_every', 'cb_ir_on',
   'radio_on_number', 'radio_on_string', 'radio_on_value', 'procedures_defnoreturn', 'procedures_defreturn']);
 // reporters that only exist inside one kind of event block
 const WHERE = { radio_number: 'radio_on_number', radio_string: 'radio_on_string', radio_name: 'radio_on_value', radio_value: 'radio_on_value' };
@@ -80,6 +80,9 @@ L.BLOCKS = [
   val('mb_light', 'light level', [], C.input, 'Number', 'Light level from 0 (dark) to 255 (bright)'),
   val('mb_compass', 'compass heading (°)', [], C.input, 'Number', 'Direction the robot faces, 0 to 359 degrees'),
   val('mb_running_time', 'running time (ms)', [], C.input, 'Number', 'Milliseconds since the program started'),
+  hat('mb_on_sound', 'on %1 sound', [dd('S', [['loud', 'Loud'], ['quiet', 'Quiet']])], C.input, 'Runs when the micro:bit V2 microphone hears a sound louder (or quieter) than the threshold'),
+  val('mb_sound_level', 'sound level', [], C.input, 'Number', 'How loud it is around the micro:bit V2, from 0 (silent) to 255 (very loud)'),
+  stmt('mb_sound_threshold', 'set %1 sound threshold to %2', [dd('S', [['loud', 'Loud'], ['quiet', 'Quiet']]), num('V')], C.input, 'The level (0-255) that counts as a loud or quiet sound. Loud starts at 128.'),
 
   stmt('mb_play_tone', 'play tone %1 for %2', [dd('NOTE', noteOpts), dd('BEAT', beatOpts)], C.music, 'Play a note and wait until it finishes'),
   stmt('mb_ring_tone', 'ring tone (Hz) %1', [dd('NOTE', noteOpts)], C.music, 'Play a note until another sound or rest'),
@@ -173,6 +176,8 @@ def('mb_temperature', () => call('input.temperature()'));
 def('mb_light', () => call('input.lightLevel()'));
 def('mb_compass', () => call('input.compassHeading()'));
 def('mb_running_time', () => call('input.runningTime()'));
+def('mb_sound_level', () => call('input.soundLevel()'));
+def('mb_sound_threshold', b => `input.setSoundThreshold(SoundThreshold.${F(b, 'S')}, ${V(b, 'V', '128')})\n`);
 def('mb_play_tone', b => `${AW()}music.playTone(Note.${F(b, 'NOTE')}, ${beat(b)})\n`);
 def('mb_ring_tone', b => `music.ringTone(Note.${F(b, 'NOTE')})\n`);
 def('mb_rest', b => `${AW()}music.rest(${beat(b)})\n`);
@@ -262,6 +267,7 @@ L.generate = function (ws, ts) {
       case 'mb_every': forevers.push(`loops.everyInterval(${F(b, 'MS')}, ${FN()} {\n${body(b)}})\n`); break;
       case 'mb_on_button': events.push(`input.onButtonPressed(Button.${F(b, 'BTN')}, ${FN()} {\n${body(b)}})\n`); break;
       case 'mb_on_gesture': events.push(`input.onGesture(Gesture.${F(b, 'G')}, ${FN()} {\n${body(b)}})\n`); break;
+      case 'mb_on_sound': events.push(`input.onSound(DetectedSound.${F(b, 'S')}, ${FN()} {\n${body(b)}})\n`); break;
       case 'cb_ir_on': events.push(`CutebotPro.irCallback(${FN()} {\n${body(b)}})\n`); break;
       case 'radio_on_number': events.push(`radio.onReceivedNumber(${FN('receivedNumber')} {\n${body(b)}})\n`); break;
       case 'radio_on_string': events.push(`radio.onReceivedString(${FN('receivedString')} {\n${body(b)}})\n`); break;
@@ -328,7 +334,10 @@ L.makeToolbox = function (devId) {
     { kind: 'category', name: 'Input', colour: C.input, contents: [
       { kind: 'block', type: 'mb_on_button' }, { kind: 'block', type: 'mb_on_gesture' }, { kind: 'block', type: 'mb_button_pressed' },
       { kind: 'block', type: 'mb_acceleration' }, { kind: 'block', type: 'mb_temperature' }, { kind: 'block', type: 'mb_light' },
-      { kind: 'block', type: 'mb_compass' }, { kind: 'block', type: 'mb_running_time' } ] },
+      { kind: 'block', type: 'mb_compass' }, { kind: 'block', type: 'mb_running_time' },
+      { kind: 'label', text: 'Microphone (micro:bit V2)' },
+      { kind: 'block', type: 'mb_on_sound' }, { kind: 'block', type: 'mb_sound_level' },
+      { kind: 'block', type: 'mb_sound_threshold', inputs: { V: sh(150) } } ] },
     { kind: 'category', name: 'Cutebot Pro', colour: C.cute, contents: [
       { kind: 'label', text: 'Basic control' },
       { kind: 'block', type: 'cb_forward' }, { kind: 'block', type: 'cb_back' },

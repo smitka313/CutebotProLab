@@ -3,7 +3,7 @@
 'use strict';
 const L = window.Lab = {};
 
-L.VERSION = 'pro-1.1';           // bump when the simulator or generator changes how programs behave
+L.VERSION = 'pro-1.2';           // bump when the simulator or generator changes how programs behave
 L.W = 120; L.H = 80;            // arena size in cm
 L.MAXV = 50;                     // cm/s at 100%
 L.WHEELBASE = 9.4;               // cm between wheels

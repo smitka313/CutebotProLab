@@ -208,6 +208,15 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .lvl-advanced { background: var(--warn-soft); color: var(--warn); }
 .menu button[data-ex] { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 /* challenge hints */
+.cs-score { font-size: 13px; color: var(--muted); }
+.cs-score b { font-size: 20px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cs-check { list-style: none; margin: 2px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 12px; font-size: 12.5px; }
+.cs-check li { display: flex; gap: 6px; align-items: baseline; color: var(--muted); }
+.cs-check li span { width: 12px; flex: none; text-align: center; font-weight: 700; }
+.cs-check li.ok { color: var(--ink); } .cs-check li.ok span { color: var(--good); }
+.cs-check li.no span { color: var(--warn); }
+.cs-check small { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ch-group { padding: 10px 2px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .cs-hints { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(11,143,47,.25); }
 .cs-hints p { margin: 0; color: var(--ink); line-height: 1.45; }
 /* progress page */
@@ -384,6 +393,15 @@ button, select, input, textarea { font: inherit; color: inherit; }
           <option value="sumo">Sumo ring</option>
           <option value="open">Open floor</option>
           <option value="mat">My track (draw your own)</option>
+          <optgroup label="V2X Senior missions">
+            <option value="v2xAlpha">Alpha: Depot Calibration</option>
+            <option value="v2xBravo">Bravo: Platooning</option>
+            <option value="v2xCharlie">Charlie: Refuge Pull-Over</option>
+            <option value="v2xDelta">Delta: Winter Supply</option>
+            <option value="v2xEcho">Echo: RECO Bots</option>
+            <option value="v2xFoxtrot">Foxtrot: Egg Escort</option>
+            <option value="v2xGolf">Golf: 4 × 8 ft exhibition</option>
+          </optgroup>
         </select>
         <select id="speedSel" aria-label="Simulation speed" title="Slow motion">
           <option value="2">Fast 2×</option>
@@ -450,6 +468,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
             <span class="sec-label">Cutebot Pro micro:bit sensors</span>
             <label for="temp"><span class="row">Temperature <output id="tempOut">21 °C</output></span><input type="range" id="temp" min="-5" max="50" value="21"></label>
             <label for="light"><span class="row">Light level <output id="lightOut">128</output></span><input type="range" id="light" min="0" max="255" value="128"></label>
+            <label for="sound"><span class="row">Room sound level <output id="soundOut">20</output></span><input type="range" id="sound" min="0" max="255" value="20"></label>
+            <button class="btn small" id="btnLoud" style="align-self:flex-start" title="A clap or whistle near the microphone: level 210 for half a second">Make a loud sound</button>
             <div class="gest">
               <select id="gestSel" aria-label="Gesture"><option value="Shake">shake</option><option value="LogoUp">logo up</option><option value="LogoDown">logo down</option><option value="ScreenUp">screen up</option><option value="ScreenDown">screen down</option><option value="TiltLeft">tilt left</option><option value="TiltRight">tilt right</option></select>
               <button class="btn small" id="btnGesture">Do it</button>
@@ -595,6 +615,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="js/runtime.js"></script>
 <script src="js/blocks.js"></script>
 <script src="js/content.js"></script>
+<script src="js/missions.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

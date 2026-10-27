@@ -35,7 +35,7 @@ const flush = () => new Promise(r => { flushQ.push(r); ch.port2.postMessage(0); 
 
 /* ---------- devices ---------- */
 function makeDevice(id, name) {
-  return { id, name, display: new Float32Array(25), buttons: { A: false, B: false }, accel: { x: 0, y: 0, z: -1023 }, env: { temp: 21, light: 128 },
+  return { id, name, display: new Float32Array(25), buttons: { A: false, B: false }, accel: { x: 0, y: 0, z: -1023 }, env: { temp: 21, light: 128, sound: 20 }, loudUntil: -1, soundHi: false, soundLo: true, loudT: 128, quietT: 52,
     handlers: {}, forevers: [], group: 0, displayToken: 0, tempo: 120, ring: null, ir: { code: 0, held: false, until: -1, next: 0 }, active: false, lastBlock: null };
 }
 const devices = L.devices = { robot: makeDevice('robot', 'Cutebot Pro micro:bit'), remote: makeDevice('remote', 'Remote micro:bit') };
@@ -66,6 +66,7 @@ function applyInput(inp) {
   else if (k === 'g') fire(d, 'gesture', b);
   else if (k === 'a') d.accel[b] = c;
   else if (k === 'e') d.env[b] = c;
+  else if (k === 'n') { for (const x of Object.values(devices)) x.loudUntil = S.t + c; L.soundBurst = { level: b, until: S.t + c }; }
 }
 /** Every button press, IR press, gesture and slider change goes through here. */
 L.input = (...inp) => {
@@ -99,7 +100,7 @@ L.audio = () => { if (!actx) { try { actx = new (window.AudioContext || window.w
 function stopRing(dev) { if (dev.ring) { try { dev.ring.stop(); } catch (e) {} dev.ring = null; } }
 L.stopSounds = () => Object.values(devices).forEach(stopRing);
 function ring(dev, freq) {
-  stopRing(dev); if (!L.soundOn || RT.fast || !freq) return; const a = L.audio(); if (!a) return;
+  stopRing(dev); if (freq) L.emit('tone', dev, freq); if (!L.soundOn || RT.fast || !freq) return; const a = L.audio(); if (!a) return;
   const o = a.createOscillator(), g = a.createGain(); o.type = 'square'; o.frequency.value = freq; g.gain.value = 0.04; o.connect(g).connect(a.destination); o.start(); dev.ring = o;
 }
 
@@ -112,6 +113,8 @@ const E = {
   Note: Object.fromEntries(L.NOTES.map(n => [n[1], n[2]])),
   BeatFraction: Object.fromEntries(L.BEATS.map(b => [b[1], b[2]])),
   Dimension: { X: 0, Y: 1, Z: 2, Strength: 3 },
+  DetectedSound: { Loud: 'loud', Quiet: 'quiet' },
+  SoundThreshold: { Loud: 'loud', Quiet: 'quiet' },
   DigitalPin: { P0: 0, P1: 1, P2: 2, P8: 8, P12: 12, P13: 13, P14: 14, P15: 15, P16: 16 },
   // enums from the pxt-cutebot-pro extension (global in MakeCode, like these)
   CutebotProMotors: { M1: 1, M2: 2, ALL: 3 },
@@ -159,7 +162,11 @@ function makeApi(dev) {
     lightLevel: () => dev.env.light,
     compassHeading: () => isRobot ? Math.round(((bot.a * 180 / Math.PI) % 360 + 360) % 360) : 0,
     runningTime: () => Math.round(S.t),
-    acceleration: (d) => { const a = dev.accel; return [a.x, a.y, a.z, Math.round(Math.hypot(a.x, a.y, a.z))][d] ?? 0; }
+    acceleration: (d) => { const a = dev.accel; return [a.x, a.y, a.z, Math.round(Math.hypot(a.x, a.y, a.z))][d] ?? 0; },
+    // micro:bit V2 microphone
+    soundLevel: () => L.soundLevel(dev),
+    onSound: (kind, fn) => on(dev, 'sound', kind, fn),
+    setSoundThreshold: (kind, v) => { v = clamp(v, 0, 255); if (kind === 'loud') dev.loudT = v; else dev.quietT = v; }
   };
   const music = {
     beat: (f = 1) => (60000 / dev.tempo) * f,
@@ -283,7 +290,7 @@ function makeApi(dev) {
     extendServoControl(type, i, angle) {
       if (!isRobot || i < 1 || i > 4) return;
       const range = [180, 180, 270, 360][type] || 180;
-      bot.spin[i - 1] = 0; bot.servo[i - 1] = 90 + clamp(angle, 0, range) - range / 2;
+      bot.spin[i - 1] = 0; bot.servoT[i - 1] = 90 + clamp(angle, 0, range) - range / 2;
     },
     continuousServoControl(i, speed) { if (isRobot && i >= 1 && i <= 4) bot.spin[i - 1] = clamp(speed, -100, 100); },
     extendMotorControl(speed) { if (isRobot) bot.extMotor = clamp(speed, -100, 100); },
@@ -301,6 +308,23 @@ function makeApi(dev) {
 }
 L.API_NAMES = Object.keys(makeApi(makeDevice('x', 'x')));
 
+/* ---------- microphone ----------
+   Level 0-255 = the room (the slider, or a mission's background noise) or a loud burst, whichever is louder. */
+L.soundLevel = function (dev) {
+  let v = dev.env.sound;
+  if (L.missionNoise) v = Math.max(v, L.missionNoise());
+  if (L.soundBurst && S.t < L.soundBurst.until) v = Math.max(v, L.soundBurst.level);
+  return Math.max(0, Math.min(255, Math.round(v)));
+};
+function checkSound() {
+  for (const d of Object.values(devices)) {
+    if (!d.active || !(d.handlers['sound:loud'] || d.handlers['sound:quiet'])) continue;
+    const v = L.soundLevel(d);
+    if (v > d.loudT && !d.soundHi) { d.soundHi = true; fire(d, 'sound', 'loud'); } else if (v <= d.loudT - 8) d.soundHi = false;
+    if (v < d.quietT && !d.soundLo) { d.soundLo = true; fire(d, 'sound', 'quiet'); } else if (v >= d.quietT + 8) d.soundLo = false;
+  }
+}
+
 /* ---------- the clock ---------- */
 async function step() {
   S.step++;
@@ -311,6 +335,7 @@ async function step() {
   if (ir.held && S.t >= ir.next) { ir.next += 110; fire(devices.robot, 'ir', 'any', [ir.code]); }
   L.physics(STEP / 1000);
   if (S.onStep) S.onStep(STEP / 1000);
+  if (S.step % 4 === 0) checkSound();
   if (!RT.running) return;
   const due = S.timers.filter(x => x.due <= S.t);
   if (due.length) {
@@ -378,7 +403,8 @@ L.runAll = function (codes, opts = {}) {
   L.real.active = opts.real !== undefined ? !!opts.real : L.real.on;
   if (L.real.active) { const g = 0.9 + L.rand() * 0.07; if (L.rand() < .5) { L.real.gainL = 1; L.real.gainR = g; } else { L.real.gainL = g; L.real.gainR = 1; } }
   else { L.real.gainL = L.real.gainR = 1; }
-  for (const d of Object.values(devices)) { d.buttons.A = d.buttons.B = false; d.ir = { code: 0, held: false, until: -1, next: 0 }; }
+  for (const d of Object.values(devices)) { d.buttons.A = d.buttons.B = false; d.ir = { code: 0, held: false, until: -1, next: 0 }; d.loudT = 128; d.quietT = 52; d.soundHi = false; d.soundLo = true; }
+  L.soundBurst = null;
   for (const [dev, fn, vals] of compiled) {
     dev.active = true; dev.display.fill(0); dev.group = 0; dev.tempo = 120; dev.lastBlock = null;
     startFiber(dev, async () => { await fn(...vals); for (const f of dev.forevers) startFiber(dev, f); });

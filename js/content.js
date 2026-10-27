@@ -210,7 +210,9 @@ L.makeChallengeRun = function (ch) {
     if (run.state !== 'running') return null;
     run.n++; run.t = Math.round(run.n * dt * 1000) / 1000;     // exact step count, so a replay reports the identical time
     let r = ch.tick(run.st, dt, run.t);
-    if (!r && run.t >= ch.limit) r = ['fail', 'Time is up.'];
+    if (!r && run.t >= ch.limit) r = ch.scored ? ['done', 'Time is up.'] : ['fail', 'Time is up.'];
+    // a scored mission ends with points instead of pass/fail: any points earn a proof
+    if (r && r[0] === 'done') { run.score = ch.score(run.st); r = run.score > 0 ? ['pass', r[1]] : ['fail', (r[1] ? r[1] + ' ' : '') + 'No points yet.']; }
     if (r) { run.state = r[0]; run.msg = r[1] || ''; if (r[0] === 'fail') run.failAt = { x: bot.x, y: bot.y }; }
     return r;
   };

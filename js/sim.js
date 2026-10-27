@@ -3,13 +3,15 @@
 (() => {
 'use strict';
 const L = window.Lab;
-const { W, H, PXCM, LINE_W, ROBOT_R, SENSOR_FWD, SENSOR_X, SONAR_FWD } = L;
+const { PXCM, LINE_W, ROBOT_R, SENSOR_FWD, SENSOR_X, SONAR_FWD } = L;
+// Arena size in cm. Most arenas are 120 × 80; the V2X mission fields are bigger. Always 3:2, so the canvas keeps its shape.
+let W = L.W, H = L.H;
 
 // cmdL/cmdR: PWM speed in % (set by the Basic control blocks). pid: the encoder blocks are in charge, pidL/pidR in cm/s.
 // track: the 4-way line sensor as the extension's state value (bit 0 = channel 1, set = sees the black line).
 // wl/wr: how far each wheel has turned (cm), which is what the encoders count.
 const bot = L.bot = { x: 60, y: 40, a: 0, vl: 0, vr: 0, cmdL: 0, cmdR: 0, pid: false, pidL: 0, pidR: 0, ctrl: null, wl: 0, wr: 0,
-  lights: ['#000000', '#000000'], servo: [90, 90, 90, 90], spin: [0, 0, 0, 0], extMotor: 0, bumpT: -1e9, bumps: 0, track: 0, sonar: 0, odo: 0, turn: 0, clock: 0 };
+  lights: ['#000000', '#000000'], servo: [90, 90, 90, 90], servoT: [90, 90, 90, 90], spin: [0, 0, 0, 0], extMotor: 0, bumpT: -1e9, bumps: 0, track: 0, sonar: 0, odo: 0, turn: 0, clock: 0 };
 // on = the viewer's setting; active = what the current run uses (fixed when Run is pressed)
 L.real = { on: false, active: false, gainL: 1, gainR: 1, deadband: 15 };
 
@@ -75,7 +77,8 @@ L.arena = { map: 'track', edits: {} };      // edits[map] = { strokes: [], boxes
 const PRISTINE = { strokes: [] };
 // Challenges set L.pristine so the original arena is used, whatever the student drew.
 const ed = L.edits = (m = L.arena.map) => L.pristine ? (PRISTINE.strokes.length = 0, delete PRISTINE.boxes, delete PRISTINE.start, PRISTINE) : (L.arena.edits[m] ||= { strokes: [] });
-L.boxes = () => ed().boxes || MAPS[L.arena.map].boxes;
+L.dyn = [];                               // moving boxes (the Bravo lead car), owned by a mission
+L.boxes = () => { const b = ed().boxes || MAPS[L.arena.map].boxes; return L.dyn.length ? b.concat(L.dyn) : b; };
 L.ownBoxes = () => { const e = ed(); if (!e.boxes) e.boxes = MAPS[L.arena.map].boxes.map(b => ({ ...b })); return e.boxes; };
 L.startPose = () => L.startOverride || ed().start || MAPS[L.arena.map].start;
 L.mapEdited = () => { const e = !L.pristine && L.arena.edits[L.arena.map]; return !!e && (e.strokes.length > 0 || !!e.boxes || !!e.start); };
@@ -84,6 +87,13 @@ L.mapEdited = () => { const e = !L.pristine && L.arena.edits[L.arena.map]; retur
 const floorCanvas = document.createElement('canvas');
 floorCanvas.width = W * PXCM; floorCanvas.height = H * PXCM;
 const fctx = floorCanvas.getContext('2d');
+L.applySize = function () {
+  const m = MAPS[L.arena.map], w = m.w || 120, h = m.h || 80;
+  if (w === W && h === H) return;
+  W = L.W = w; H = L.H = h;
+  floorCanvas.width = W * PXCM; floorCanvas.height = H * PXCM;
+  L.view.zoom = 1; L.view.cx = W / 2; L.view.cy = H / 2;
+};
 function strokePath(c, s) {
   c.lineWidth = s.k === 'e' ? 6 : LINE_W; c.strokeStyle = s.k === 'e' ? '#ffffff' : '#111111'; c.lineCap = 'round'; c.lineJoin = 'round';
   c.beginPath(); s.pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]));
@@ -91,6 +101,7 @@ function strokePath(c, s) {
   c.stroke();
 }
 L.buildFloor = function () {
+  L.applySize();
   const c = fctx;
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.fillStyle = '#ffffff'; c.fillRect(0, 0, floorCanvas.width, floorCanvas.height);
@@ -122,6 +133,7 @@ function isBlack(x, y) {
 L.isBlack = isBlack;
 
 L.placeRobot = function () {
+  L.applySize();
   const s = L.startPose();
   Object.assign(bot, { x: s.x, y: s.y, a: s.a, vl: 0, vr: 0, cmdL: 0, cmdR: 0, pid: false, pidL: 0, pidR: 0, ctrl: null, wl: 0, wr: 0, odo: 0, turn: 0, bumps: 0, bumpT: -1e9, clock: 0 });
   L.trail = [];
@@ -224,15 +236,37 @@ L.physics = function (dt) {
     bot.odo += Math.hypot(bot.x - px, bot.y - py);
     sense(false);
   }
-  for (let i = 0; i < 4; i++) if (bot.spin[i]) bot.servo[i] = (bot.servo[i] + bot.spin[i] * 3.6 * dt) % 360;   // continuous servos
+  for (let i = 0; i < 4; i++) {
+    if (bot.spin[i]) { bot.servo[i] = (bot.servo[i] + bot.spin[i] * 3.6 * dt) % 360; continue; }     // continuous servos
+    const d = bot.servoT[i] - bot.servo[i], max = 400 * dt;                                         // a servo turns about 400°/s
+    bot.servo[i] = Math.abs(d) <= max ? bot.servoT[i] : bot.servo[i] + Math.sign(d) * max;
+  }
   const last = L.trail[L.trail.length - 1];
   if (!last || Math.hypot(last[0] - bot.x, last[1] - bot.y) > 0.4) { L.trail.push([bot.x, bot.y]); if (L.trail.length > 6000) L.trail.splice(0, 1000); }
 };
 L.trail = [];
 L.trailOn = true;
 
+/* ---------- servo arms (mission attachments) ----------
+   When a mission turns arms on, servo S1 drives a 10 cm arm on the robot's left side and S2 one on its right side.
+   0° = folded back along the body, 90° = straight out to the side, 180° = pointing forward. */
+L.ARM_LEN = 10;
+L.armsOn = false;
+L.armSegs = function () {
+  if (!L.armsOn) return [];
+  const s = Math.sin(bot.a), c = Math.cos(bot.a), out = [];
+  for (const [side, i] of [[-1, 0], [1, 1]]) {
+    const th = (bot.servo[i] - 90) * Math.PI / 180;                    // robot frame: x right, y back
+    const px = side * 4.9, py = 0, dx = side * Math.cos(th) * L.ARM_LEN, dy = -Math.sin(th) * L.ARM_LEN;
+    const w = (x, y) => [bot.x + c * x - s * y, bot.y + s * x + c * y];
+    out.push([w(px, py), w(px + dx, py + dy)]);
+  }
+  return out;
+};
+L.segDist = segDist;
+
 /* ---------- view (zoom + follow) ---------- */
-L.view = { zoom: 1, follow: true, cx: W / 2, cy: H / 2 };
+L.view = L.view || { zoom: 1, follow: true, cx: W / 2, cy: H / 2 };
 const arena = L.$('arena'), actx = arena.getContext('2d');
 let T = { s: 5, ox: 0, oy: 0 };
 L.sizeArena = function () {
@@ -289,6 +323,7 @@ function drawArena() {
   c.strokeStyle = 'rgba(47,108,246,.55)'; c.setLineDash([1.2, 1]); c.lineWidth = .35;
   c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + Math.sin(bot.a) * d, sy - Math.cos(bot.a) * d); c.stroke(); c.setLineDash([]);
   drawRobot(c);
+  if (L.drawTop) L.drawTop(c, s);
 }
 function glow(c, x, y, rgb, alpha, r) {
   const [R, G, B] = rgb, g = c.createRadialGradient(x, y, .3, x, y, r);
@@ -338,6 +373,13 @@ function drawRobot(c) {
   [-3.3, -1.1, 1.1, 3.3].forEach((sx, i) => {
     c.save(); c.translate(sx, 4.6); c.rotate((bot.servo[i] - 90) * Math.PI / 180);
     c.fillStyle = '#e7e7e7'; roundRect(c, -.3, -1.7, .6, 1.7, .25); c.fill(); c.fillStyle = '#9aa0a6'; c.beginPath(); c.arc(0, 0, .45, 0, 7); c.fill(); c.restore();
+  });
+  if (L.armsOn) [[-1, 0], [1, 1]].forEach(([side, i]) => {
+    const th = (bot.servo[i] - 90) * Math.PI / 180;
+    c.save(); c.translate(side * 4.9, 0); c.rotate(side > 0 ? -th : th);
+    c.fillStyle = '#e8b400'; c.strokeStyle = '#6b5200'; c.lineWidth = .15;
+    roundRect(c, side > 0 ? 0 : -L.ARM_LEN, -.45, L.ARM_LEN, .9, .4); c.fill(); c.stroke();
+    c.fillStyle = '#6b5200'; c.beginPath(); c.arc(0, 0, .6, 0, 7); c.fill(); c.restore();
   });
   // the 4-way line sensor
   c.fillStyle = 'rgba(0,0,0,.55)'; roundRect(c, -3, -SENSOR_FWD - .7, 6, 1.4, .5); c.fill();
