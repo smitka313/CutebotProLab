@@ -285,6 +285,7 @@ const MISSIONS = [
     hints: ['Measure first: how many cm does the robot drive at your speed in 1 second? 1 in = 2.54 cm.', 'The encoder (PID) blocks drive exact distances and angles. Judges give bonus points for closed-loop calibration.', 'Use a variable for each distance so changing one number recalibrates the whole run.'] },
 
   { id: 'v2xBravo', title: 'Bravo: Goose Flock Platooning', due: 'Video due Feb 26, 2027', map: 'v2xBravo', limit: 60, scored: true, max: 10,
+    metNote: 'On the real field, keep the demonstration going for the full 45 seconds.',
     goal: 'Follow the lead box for 45 s. Over 12 in away: full speed. 6 to 12 in: half speed with amber headlights. Under 6 in: stop before touching, back up 4 in and beep.',
     setup(st) { st.lead = { x: 90, y: 74, w: 12, h: 12 }; L.dyn = [st.lead]; st.ind = {}; st.vOpen = 0; st.em = null; st.contact = false; st.zoneT = { open: 0, pace: 0 }; st.toneFlag = false; },
     tick(st, dt, t) {

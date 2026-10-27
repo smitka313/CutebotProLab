@@ -639,7 +639,7 @@ function renderChallengeStrip(force) {
     ${ch.scored ? `<div class="cs-score"><b>${score}</b> / ${ch.max} practice points${ch.due ? ` · ${esc(ch.due)}` : ''}</div>` : ''}
     ${check ? `<ul class="cs-check">${check.map(([t, ok, pts]) => { const no = ok === 'x' || (ok === false && s !== 'ready' && s !== 'running'); return `<li class="${ok === true ? 'ok' : no ? 'no' : ''}"><span aria-hidden="true">${ok === true ? '✓' : no ? '✗' : '○'}</span>${esc(t)}${pts ? ` <small>${pts} pts</small>` : ''}</li>`; }).join('')}</ul>` : ''}
     ${ch.bonus && s !== 'running' ? `<div class="cs-goal">Bonus: ${esc(ch.bonus())}. Judges award bonus points.</div>` : ''}
-    <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>
+    <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && s === 'stopped' && ch.scored ? ' <b>Stopped before the mission finished, so this score was not saved.</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>
     ${!replayOf && hints.length && s !== 'running' ? `<div class="cs-hints">${hints.slice(0, nh).map((h, i) => `<p><b>Hint ${i + 1}:</b> ${esc(h)}</p>`).join('')}${nh < hints.length ? `<button class="btn small" id="btnHint">${nh ? 'Another hint' : 'Need a hint?'}</button>` : ''}</div>` : ''}`;
   $('btnExitCh').onclick = () => { const back = !!replayOf; exitChallenge(); if (back) openTeacher(); };
   if ($('btnHint')) $('btnHint').onclick = () => { hintsShown[ch.id] = nh + 1; renderChallengeStrip(true); };
