@@ -81,7 +81,44 @@ L.dyn = [];                               // moving boxes (the Bravo lead car), 
 L.boxes = () => { const b = ed().boxes || MAPS[L.arena.map].boxes; return L.dyn.length ? b.concat(L.dyn) : b; };
 L.ownBoxes = () => { const e = ed(); if (!e.boxes) e.boxes = MAPS[L.arena.map].boxes.map(b => ({ ...b })); return e.boxes; };
 L.startPose = () => L.startOverride || ed().start || MAPS[L.arena.map].start;
-L.mapEdited = () => { const e = !L.pristine && L.arena.edits[L.arena.map]; return !!e && (e.strokes.length > 0 || !!e.boxes || !!e.start); };
+L.mapEdited = () => { const e = !L.pristine && L.arena.edits[L.arena.map]; return !!e && (e.strokes.length > 0 || !!e.boxes || !!e.start || !!(e.cubes && e.cubes.length)); };
+
+/* ---------- colored cubes ----------
+   1 in cubes the student places with Edit arena → Cubes (saved with the arena), for practising with the HuskyLens.
+   During a run the robot pushes them; every reset puts them back where they were placed. */
+L.CUBE = 2.54;
+L.CUBE_COLORS = { red: '#d62f2f', orange: '#f08a1c', yellow: '#e9c21c', green: '#2ea84f', cyan: '#1fb5c9', blue: '#2f62d6', purple: '#7a3db8', pink: '#e85aa8', white: '#f4f4f0', black: '#151515' };
+L.cubeColor = 'red';
+L.liveCubes = [];
+L.resetCubes = () => { L.liveCubes = L.pristine ? [] : (ed().cubes || []).map(c => ({ ...c })); };
+L.ownCubes = () => (ed().cubes ||= []);
+// the robot's body and arms push cubes; cubes push each other and stay in the arena
+L.pushCubes = function (cubes) {
+  const half = L.CUBE / 2, R = ROBOT_R * 0.95 + half, arms = L.armSegs();
+  for (const q of cubes) {
+    const dx = q.x - bot.x, dy = q.y - bot.y, d = Math.hypot(dx, dy);
+    if (d < R && d > 1e-6) { q.x = bot.x + dx / d * R; q.y = bot.y + dy / d * R; }
+    for (const [a, b] of arms) {
+      const ab = [b[0] - a[0], b[1] - a[1]], len2 = ab[0] * ab[0] + ab[1] * ab[1];
+      const t = Math.max(0, Math.min(1, ((q.x - a[0]) * ab[0] + (q.y - a[1]) * ab[1]) / len2));
+      const px = a[0] + ab[0] * t, py = a[1] + ab[1] * t, ex = q.x - px, ey = q.y - py, e = Math.hypot(ex, ey), need = half + .45;
+      if (e < need && e > 1e-6) { q.x = px + ex / e * need; q.y = py + ey / e * need; }
+    }
+  }
+  for (let it = 0; it < 2; it++) for (let i = 0; i < cubes.length; i++) for (let j = i + 1; j < cubes.length; j++) {
+    const a = cubes[i], b = cubes[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+    if (d < L.CUBE && d > 1e-6) { const k = (L.CUBE - d) / 2 / d; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
+  }
+  for (const q of cubes) { q.x = Math.max(half, Math.min(W - half, q.x)); q.y = Math.max(half, Math.min(H - half, q.y)); }
+};
+L.drawCubes = function (c, cubes) {
+  for (const q of cubes) {
+    const col = L.CUBE_COLORS[q.color] || q.fill || '#888';
+    c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(q.x - 1.1, q.y - 1.0, L.CUBE, L.CUBE);
+    c.fillStyle = col; c.fillRect(q.x - 1.27, q.y - 1.27, L.CUBE, L.CUBE);
+    c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = .15; c.strokeRect(q.x - 1.27, q.y - 1.27, L.CUBE, L.CUBE);
+  }
+};
 
 /* The floor picture is only for show. Sensors use the same shapes as geometry (see isBlack). */
 const floorCanvas = document.createElement('canvas');
@@ -109,6 +146,7 @@ L.buildFloor = function () {
   L.mapLabels = []; L.inFloor = true;
   try { MAPS[L.arena.map].floor(c); } finally { L.inFloor = false; }
   for (const s of ed().strokes) strokePath(c, s);
+  L.resetCubes();
 };
 /* Text on the field is drawn each frame, never baked into the floor picture,
    so it stays readable on the big V2X fields: at least about 11 screen pixels tall. */
@@ -145,6 +183,7 @@ L.placeRobot = function () {
   const s = L.startPose();
   Object.assign(bot, { x: s.x, y: s.y, a: s.a, vl: 0, vr: 0, cmdL: 0, cmdR: 0, pid: false, pidL: 0, pidR: 0, ctrl: null, wl: 0, wr: 0, odo: 0, turn: 0, bumps: 0, bumpT: -1e9, clock: 0 });
   L.trail = [];
+  L.resetCubes();
   sense(true);
 };
 
@@ -242,6 +281,7 @@ L.physics = function (dt) {
     bot.y -= Math.cos(bot.a) * v * h;
     collide();
     bot.odo += Math.hypot(bot.x - px, bot.y - py);
+    if (L.liveCubes.length) L.pushCubes(L.liveCubes);
     sense(false);
   }
   for (let i = 0; i < 4; i++) {
@@ -336,6 +376,7 @@ function drawArena() {
   c.strokeStyle = 'rgba(47,108,246,.55)'; c.setLineDash([1.2, 1]); c.lineWidth = .35;
   c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + Math.sin(bot.a) * d, sy - Math.cos(bot.a) * d); c.stroke(); c.setLineDash([]);
   if (L.huskyOn && L.husky) L.husky.drawFov(c);
+  L.drawCubes(c, L.liveCubes);
   drawRobot(c);
   if (L.drawTop) L.drawTop(c, s);
 }
@@ -416,6 +457,12 @@ let drag = null;
 arena.addEventListener('pointerdown', (e) => {
   const [x, y] = L.toWorld(e);
   if (L.lockRobot && L.tool !== 'move') return;
+  if (L.tool === 'cube') {
+    const cs = L.ownCubes(), i = cs.findIndex(q => Math.hypot(q.x - x, q.y - y) < 2.2);
+    if (i >= 0) cs.splice(i, 1);
+    else cs.push({ x: +Math.max(1.3, Math.min(W - 1.3, x)).toFixed(2), y: +Math.max(1.3, Math.min(H - 1.3, y)).toFixed(2), color: L.cubeColor });
+    L.resetCubes(); L.emit('change'); return;
+  }
   if (L.tool === 'box') {
     const bs = L.ownBoxes(); const i = bs.findIndex(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
     if (i >= 0) bs.splice(i, 1); else bs.push({ x: Math.max(0, Math.min(W - 10, x - 5)), y: Math.max(0, Math.min(H - 10, y - 5)), w: 10, h: 10 });

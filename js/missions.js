@@ -160,23 +160,8 @@ function deltaCubes() {
   return list;
 }
 function deltaPush(st) {
-  const cubes = st.cubes, half = DELTA.S / 2, R = L.ROBOT_R * 0.95 + half;
-  const arms = L.armSegs();
-  for (const q of cubes) {
-    const dx = q.x - bot.x, dy = q.y - bot.y, d = Math.hypot(dx, dy);
-    if (d < R && d > 1e-6) { q.x = bot.x + dx / d * R; q.y = bot.y + dy / d * R; }
-    for (const [a, b] of arms) {
-      const ab = [b[0] - a[0], b[1] - a[1]], len2 = ab[0] * ab[0] + ab[1] * ab[1];
-      const t = Math.max(0, Math.min(1, ((q.x - a[0]) * ab[0] + (q.y - a[1]) * ab[1]) / len2));
-      const px = a[0] + ab[0] * t, py = a[1] + ab[1] * t, ex = q.x - px, ey = q.y - py, e = Math.hypot(ex, ey), need = half + .45;
-      if (e < need && e > 1e-6) { q.x = px + ex / e * need; q.y = py + ey / e * need; }
-    }
-  }
-  for (let it = 0; it < 2; it++) for (let i = 0; i < cubes.length; i++) for (let j = i + 1; j < cubes.length; j++) {
-    const a = cubes[i], b = cubes[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-    if (d < DELTA.S && d > 1e-6) { const k = (DELTA.S - d) / 2 / d; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
-  }
-  for (const q of cubes) { q.x = Math.max(half, Math.min(L.W - half, q.x)); q.y = Math.max(half, Math.min(L.H - half, q.y)); if (!inRect(DELTA.store, q.x, q.y)) q.moved = true; }
+  L.pushCubes(st.cubes);
+  for (const q of st.cubes) if (!inRect(DELTA.store, q.x, q.y)) q.moved = true;
 }
 function deltaScore(st) {
   let out = 0, lodge = 0;

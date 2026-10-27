@@ -11,7 +11,7 @@ const SW = 320, SH = 240;
 const CAM = { fwd: 6.5, h: 9, tilt: 25 * Math.PI / 180, hfov: 60 * Math.PI / 180 };
 const FX = (SW / 2) / Math.tan(CAM.hfov / 2), FY = FX;
 const ct = Math.cos(CAM.tilt), st = Math.sin(CAM.tilt);
-const COLORS = { red: '#d62f2f', blue: '#2f62d6', yellow: '#e9c21c', green: '#2ea84f', black: '#151515', purple: '#7a3db8', cardboard: '#c9a06a' };
+const COLORS = { ...L.CUBE_COLORS, cardboard: '#c9a06a' };          // the cube palette, plus the arena's cardboard boxes
 const DEFAULT = ['red', 'blue', 'yellow', 'green'];
 const ALG = ['Face Recognition', 'Object Tracking', 'Object Recognition', 'Line Tracking', 'Color Recognition', 'Tag Recognition', 'Object Classification', 'QR Recognition', 'Barcode Recognition'];
 const COLOR_ALG = 4;
@@ -51,6 +51,7 @@ function segHitsRect(x0, y0, x1, y1, r) {
 // boxes in the arena, plus whatever the open mission adds (Delta's cubes, Echo's RECO bots)
 H.objects = function () {
   const out = L.boxes().map(b => ({ x: b.x, y: b.y, w: b.w, d: b.h, h: 10, z: 0, color: 'cardboard', box: b }));
+  for (const q of L.liveCubes) out.push({ x: q.x - L.CUBE / 2, y: q.y - L.CUBE / 2, w: L.CUBE, d: L.CUBE, h: L.CUBE, z: 0, color: q.color });
   if (L.visionHook) out.push(...L.visionHook());
   return out;
 };

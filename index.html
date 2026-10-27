@@ -116,7 +116,12 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .arena-wrap { position: relative; border-radius: var(--r); overflow: hidden; background: var(--arena-frame); padding: 6px; }
 #arena { display: block; width: 100%; height: auto; border-radius: 6px; touch-action: none; cursor: grab; }
 #arena[data-tool="draw"], #arena[data-tool="erase"] { cursor: crosshair; }
-#arena[data-tool="box"] { cursor: copy; }
+#arena[data-tool="box"], #arena[data-tool="cube"] { cursor: copy; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { width: 24px; height: 24px; border-radius: 6px; border: 1px solid rgba(0,0,0,.3); cursor: pointer; padding: 0; }
+.swatch[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: 2px; }
+.hl-learned select { border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 2px 4px; font-size: 13px; }
+.hl-learned .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 4px; }
 .arena-hint { position: absolute; left: 14px; bottom: 12px; font-size: 11px; color: #e9efea; background: rgba(10,14,12,.62); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
 .azoom { position: absolute; right: 12px; top: 12px; display: flex; gap: 4px; }
 .azoom button { width: 30px; height: 30px; border-radius: 8px; border: 0; background: rgba(10,14,12,.68); color: #e9efea; cursor: pointer; font-size: 16px; line-height: 1; display: grid; place-items: center; }
@@ -466,12 +471,21 @@ button, select, input, textarea { font: inherit; color: inherit; }
           <button data-tool="draw" aria-pressed="false">Draw line</button>
           <button data-tool="erase" aria-pressed="false">Erase</button>
           <button data-tool="box" aria-pressed="false">Boxes</button>
+          <button data-tool="cube" aria-pressed="false">Cubes</button>
         </div>
         <button class="btn small" id="btnSetStart" title="Use the robot's current position and direction as the start">Set start here</button>
         <button class="btn small" id="btnRestore" title="Undo all your changes to this arena">Restore arena</button>
         <span class="spacer"></span>
         <button class="btn small" id="btnRotL" title="Rotate robot left 15°" aria-label="Rotate robot left">⟲</button>
         <button class="btn small" id="btnRotR" title="Rotate robot right 15°" aria-label="Rotate robot right">⟳</button>
+      </div>
+
+      <div class="simbar arena-tools" id="cubeTools" hidden>
+        <span class="sec-label">Cube color</span>
+        <div class="swatches" id="cubePalette" role="group" aria-label="Cube color"></div>
+        <span class="spacer"></span>
+        <button class="btn small" id="btnIdCubes" title="One cube of each learned HuskyLens color, 25 cm in front of the robot">Add ID cubes</button>
+        <button class="btn small" id="btnClearCubes">Remove all cubes</button>
       </div>
 
       <div class="cstrip" id="challengeStrip" hidden></div>
@@ -572,8 +586,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
             <span class="sec-label">Learned colors</span>
             <ol class="hl-learned" id="hlLearned"></ol>
             <button class="btn small" id="hlLearn" title="Like pressing the learning button on the real HuskyLens">Learn the color in the center box</button>
-            <div class="row-actions"><button class="btn small" id="hlForget">Forget all</button><button class="btn small" id="hlDefault">Use red, blue, yellow, green</button></div>
-            <p class="note">A virtual HuskyLens on the front of the robot, 9 cm up, tilted 25° down. Its screen is 320 × 240 pixels. Only <b>Color Recognition</b> is simulated so far. On the real HuskyLens, you teach colors with its own button.</p>
+            <div class="row-actions"><button class="btn small" id="hlAdd">Add an ID</button><button class="btn small" id="hlForget">Forget all</button><button class="btn small" id="hlDefault">Use red, blue, yellow, green</button></div>
+            <p class="note">A virtual HuskyLens on the front of the robot, 9 cm up, tilted 25° down. Its screen is 320 × 240 pixels. Only <b>Color Recognition</b> is simulated so far. To practise, place cubes with <b>Edit arena → Cubes</b>. On the real HuskyLens, you teach colors with its own button.</p>
           </div>
         </div>
       </div>
@@ -664,13 +678,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="vendor/blockly/blocks_compressed.js"></script>
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
-<script src="js/data.js?v=20261027h"></script>
-<script src="js/sim.js?v=20261027h"></script>
-<script src="js/runtime.js?v=20261027h"></script>
-<script src="js/blocks.js?v=20261027h"></script>
-<script src="js/content.js?v=20261027h"></script>
-<script src="js/missions.js?v=20261027h"></script>
-<script src="js/huskylens.js?v=20261027h"></script>
-<script src="js/app.js?v=20261027h"></script>
+<script src="js/data.js?v=20261027i"></script>
+<script src="js/sim.js?v=20261027i"></script>
+<script src="js/runtime.js?v=20261027i"></script>
+<script src="js/blocks.js?v=20261027i"></script>
+<script src="js/content.js?v=20261027i"></script>
+<script src="js/missions.js?v=20261027i"></script>
+<script src="js/huskylens.js?v=20261027i"></script>
+<script src="js/app.js?v=20261027i"></script>
 </body>
 </html>

@@ -237,7 +237,7 @@ function updateTabs() {
   const ir = /"type":"cb_ir_/.test(states);
   // the HuskyLens is mounted once a program uses it, and its tab shows then (and on the missions where a camera helps)
   L.huskyOn = /"type":"hl_/.test(states);
-  const husky = L.huskyOn || !!(challenge && challenge.vision);
+  const husky = L.huskyOn || !!(challenge && challenge.vision) || L.liveCubes.length > 0;      // or when the arena has cubes to look at
   document.querySelector('[data-tab="remote"]').hidden = !radio;
   document.querySelector('[data-tab="ir"]').hidden = !ir;
   document.querySelector('[data-tab="husky"]').hidden = !husky;
@@ -333,7 +333,8 @@ function setMap(m, quiet) {
 function setTool(t) {
   L.tool = t;
   document.querySelectorAll('#toolSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t));
-  const hints = { move: `Drag the robot to move it · 1 square = ${L.useInches() ? '6 in' : '10 cm'}`, draw: 'Drag to draw black tape on the floor', erase: 'Drag to erase tape', box: 'Click to add a 10 cm box · click a box to remove it' };
+  $('cubeTools').hidden = t !== 'cube';
+  const hints = { cube: 'Click to add a 1 in cube in the chosen color · click a cube to remove it', move: `Drag the robot to move it · 1 square = ${L.useInches() ? '6 in' : '10 cm'}`, draw: 'Drag to draw black tape on the floor', erase: 'Drag to erase tape', box: 'Click to add a 10 cm box · click a box to remove it' };
   $('arenaHint').textContent = hints[t];
   $('arena').dataset.tool = t;
 }
@@ -521,9 +522,33 @@ L.drawOverlay = (c, s) => {
 const hintsShown = {};      // challenge id -> how many hints the student has opened
 // mission props (a moving lead box, servo arms, room noise) exist only while their mission is open
 L.visionHook = () => (challenge && crun && challenge.vision ? challenge.vision(crun.st) : []);
+// learned IDs: each one's color can be picked from the palette; one ID per color, like the device
 function renderHusky() {
-  const H = L.husky;
-  $('hlLearned').innerHTML = H.learned.length ? H.learned.map((c, i) => `<li><i style="background:${H.COLORS[c]}"></i>ID${i + 1}: ${esc(c)}</li>`).join('') : '<li class="note">Nothing learned. Put a colored object in the center box and press Learn.</li>';
+  const H = L.husky, names = Object.keys(L.CUBE_COLORS);
+  $('hlLearned').innerHTML = H.learned.length ? H.learned.map((c, i) => `<li><i style="background:${H.COLORS[c]}"></i>ID${i + 1}
+    <select data-i="${i}" aria-label="Color for ID${i + 1}">${names.map(n => `<option value="${n}" ${n === c ? 'selected' : ''}>${n}</option>`).join('')}</select>
+    <button class="x" data-rm="${i}" aria-label="Remove ID${i + 1}" title="Remove this ID">×</button></li>`).join('') : '<li class="note">Nothing learned. Put a colored object in the center box and press Learn, or press Add an ID.</li>';
+  $('hlLearned').querySelectorAll('select').forEach(sel => sel.onchange = () => {
+    const i = +sel.dataset.i, other = H.learned.indexOf(sel.value);
+    if (other >= 0) H.learned[other] = H.learned[i];          // that color had another ID: swap them
+    H.learned[i] = sel.value; H.save(); renderHusky();
+  });
+  $('hlLearned').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { H.learned.splice(+b.dataset.rm, 1); H.save(); renderHusky(); });
+}
+function renderPalette() {
+  $('cubePalette').innerHTML = Object.entries(L.CUBE_COLORS).map(([n, hex]) => `<button class="swatch" data-color="${n}" style="background:${hex}" aria-pressed="${n === L.cubeColor}" title="${n}" aria-label="${n}"></button>`).join('');
+  $('cubePalette').querySelectorAll('.swatch').forEach(b => b.onclick = () => { L.cubeColor = ui.cubeColor = b.dataset.color; writeJSON(UISTORE, ui); renderPalette(); });
+}
+// one cube of each learned color in a row 25 cm in front of the robot
+function addIdCubes() {
+  const cols = L.husky.learned; if (!cols.length) return toast('No learned colors yet. Add an ID in the HuskyLens tab first.');
+  const s = Math.sin(bot.a), c = Math.cos(bot.a), cs = L.ownCubes();
+  cols.forEach((color, i) => {
+    const off = (i - (cols.length - 1) / 2) * 6, x = bot.x + s * 25 + c * off, y = bot.y - c * 25 + s * off;
+    cs.push({ x: +Math.max(1.3, Math.min(L.W - 1.3, x)).toFixed(2), y: +Math.max(1.3, Math.min(L.H - 1.3, y)).toFixed(2), color });
+  });
+  L.resetCubes(); L.emit('change');
+  toast(`Added ${cols.map((c2, i) => `ID${i + 1} ${c2}`).join(', ')} 25 cm in front of the robot.`);
 }
 function clearMission() { L.dyn = []; L.armsOn = !!ui.arms; L.missionNoise = null; L.soundBurst = null; }
 // servo arms (when shown) start folded back at 0°; without arms the servo horns rest at 90°
@@ -1131,7 +1156,7 @@ function init() {
       autoT = setTimeout(() => { if (RT.running && !challenge && !replayOf && !ws.isDragging()) { resetAll(); run(); toast('Restarted with your new code'); } }, 900);
     }
   });
-  L.on('change', () => { save(); updateArenaButtons(); });
+  L.on('change', () => { save(); updateArenaButtons(); updateTabs(); });
 
   new ResizeObserver(() => Blockly.svgResize(ws)).observe($('blockly'));
   new ResizeObserver(() => L.sizeArena()).observe($('arena').parentElement);
@@ -1177,6 +1202,11 @@ function init() {
   $('hlLearn').onclick = () => { const c = L.husky.learnCenter(L.husky.learned, L.husky.learned.length + 1); if (!c) return toast('Nothing in the center box. Turn or move the robot until a colored object is in the middle of the camera view.'); L.husky.save(); renderHusky(); toast(`Learned ${c} as ID${L.husky.learned.indexOf(c) + 1}. It applies from the next Run.`); };
   $('hlForget').onclick = () => { L.husky.learned = []; L.husky.save(); renderHusky(); };
   $('hlDefault').onclick = () => { L.husky.learned = ['red', 'blue', 'yellow', 'green']; L.husky.save(); renderHusky(); };
+  $('hlAdd').onclick = () => { const free = Object.keys(L.CUBE_COLORS).find(n => !L.husky.learned.includes(n)); if (!free) return toast('Every palette color already has an ID.'); L.husky.learned.push(free); L.husky.save(); renderHusky(); };
+  if (L.CUBE_COLORS[ui.cubeColor]) L.cubeColor = ui.cubeColor;
+  renderPalette();
+  $('btnIdCubes').onclick = addIdCubes;
+  $('btnClearCubes').onclick = () => { L.ownCubes().length = 0; L.resetCubes(); L.emit('change'); };
   slider('tiltX', 'tiltXOut', v => v, v => L.input('a', 'remote', 'x', v));
   slider('tiltY', 'tiltYOut', v => v, v => L.input('a', 'remote', 'y', v));
   $('btnTiltZero').onclick = () => { ['tiltX', 'tiltY'].forEach(id => { $(id).value = 0; $(id).dispatchEvent(new Event('input')); }); };
