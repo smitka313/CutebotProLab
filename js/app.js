@@ -622,7 +622,7 @@ function renderChallengeStrip(force) {
 function renderChallengeList() {
   const row = (ch) => {
     const p = proofs[ch.id];
-    return `<li class="ch-row${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b>${ch.level && !ch.scored ? `<span class="lvl lvl-${ch.level.toLowerCase()}">${esc(ch.level)}</span>` : ''}${ch.due ? `<span class="ch-map">${esc(ch.due)}</span>` : `<span class="ch-map">${esc(L.MAPS[ch.map].name)}</span>`}<p>${esc(ch.goal)}</p></div>
+    return `<li class="ch-row${ch.group === 'v2x' ? ' v2x' : ''}${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b>${ch.group === 'v2x' ? '<span class="lvl lvl-v2x">V2X</span>' : ch.level && !ch.scored ? `<span class="lvl lvl-${ch.level.toLowerCase()}">${esc(ch.level)}</span>` : ''}${ch.due ? `<span class="ch-map">${esc(ch.due)}</span>` : `<span class="ch-map">${esc(L.MAPS[ch.map].name)}</span>`}<p>${esc(ch.goal)}</p></div>
       <div class="ch-side">${p ? `<span class="badge pass">Best ${esc(resultText(ch, p))}${p.real ? ' · real-world' : ''}</span>` : `<span class="badge">${ch.scored ? 'No score yet' : 'Not passed'}</span>`}<button class="btn small" data-ch="${ch.id}">${challenge && challenge.id === ch.id ? 'Restart' : 'Start'}</button></div></li>`;
   };
   const plain = L.CHALLENGES.filter(c => c.group !== 'v2x'), v2x = L.CHALLENGES.filter(c => c.group === 'v2x');

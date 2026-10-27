@@ -16,6 +16,7 @@
   --head: #18211c; --head-ink: #e9efea; --head-muted: #9fb0a6;
   --warn: #b4441b; --warn-soft: #fbe6dc; --good: #0b8f2f; --good-soft: #dff3e4; --info-soft: #e5edfd; --info: #2f5fd0;
   --chip: #eef2ef; --arena-frame: #2a332e; --code-bg: #f7f9f7;
+  --v2x: #5a3fc8; --v2x-soft: #efebfd; --v2x-line: #c9bdf5;
   --tk-key: #7a3db8; --tk-ns: #0a6fc2; --tk-str: #a5521a; --tk-num: #0b8f2f; --tk-com: #7c8a82;
   --font-ui: "Lexend", "Segoe UI", system-ui, sans-serif;
   --font-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -27,6 +28,7 @@
     --accent: #3fcf62; --accent-ink: #08210f; --accent-soft: #173322; --head: #0b0f0c; --head-ink: #e3eae5; --head-muted: #8a9a90;
     --warn: #ff9a6b; --warn-soft: #3a2018; --good: #5fdc7e; --good-soft: #173322; --info-soft: #1a2540; --info: #8fb0ff;
     --chip: #222a25; --arena-frame: #050806; --code-bg: #131814;
+    --v2x: #b3a2ff; --v2x-soft: #221c3d; --v2x-line: #463a7a;
     --tk-key: #c79bff; --tk-ns: #6cb8ff; --tk-str: #f0a36b; --tk-num: #6fe08a; --tk-com: #6f7d75;
     color-scheme: dark;
   }
@@ -36,6 +38,7 @@
   --accent: #3fcf62; --accent-ink: #08210f; --accent-soft: #173322; --head: #0b0f0c; --head-ink: #e3eae5; --head-muted: #8a9a90;
   --warn: #ff9a6b; --warn-soft: #3a2018; --good: #5fdc7e; --good-soft: #173322; --info-soft: #1a2540; --info: #8fb0ff;
   --chip: #222a25; --arena-frame: #050806; --code-bg: #131814;
+  --v2x: #b3a2ff; --v2x-soft: #221c3d; --v2x-line: #463a7a;
   --tk-key: #c79bff; --tk-ns: #6cb8ff; --tk-str: #f0a36b; --tk-num: #6fe08a; --tk-com: #6f7d75;
   color-scheme: dark;
 }
@@ -217,7 +220,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .cs-check li.ok { color: var(--ink); } .cs-check li.ok span { color: var(--good); }
 .cs-check li.no span { color: var(--warn); }
 .cs-check small { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ch-group { padding: 10px 2px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.ch-group { padding: 10px 2px 0; border-top: 2px solid var(--v2x); display: flex; flex-direction: column; gap: 4px; }
+.ch-group .sec-label { color: var(--v2x); }
+/* V2X missions stand apart from the practice challenges */
+.ch-row.v2x { background: var(--v2x-soft); border-color: var(--v2x-line); border-left: 4px solid var(--v2x); }
+.ch-row.v2x b { color: var(--v2x); }
+.ch-row.v2x .ch-map { white-space: nowrap; display: inline-block; }
+.ch-row.v2x.active { border-color: var(--v2x); box-shadow: 0 0 0 1px var(--v2x); }
+.lvl-v2x { background: var(--v2x); color: var(--panel); }
 .cs-hints { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(11,143,47,.25); }
 .cs-hints p { margin: 0; color: var(--ink); line-height: 1.45; }
 /* progress page */
@@ -635,12 +645,12 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="vendor/blockly/blocks_compressed.js"></script>
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
-<script src="js/data.js?v=20261027c"></script>
-<script src="js/sim.js?v=20261027c"></script>
-<script src="js/runtime.js?v=20261027c"></script>
-<script src="js/blocks.js?v=20261027c"></script>
-<script src="js/content.js?v=20261027c"></script>
-<script src="js/missions.js?v=20261027c"></script>
-<script src="js/app.js?v=20261027c"></script>
+<script src="js/data.js?v=20261027d"></script>
+<script src="js/sim.js?v=20261027d"></script>
+<script src="js/runtime.js?v=20261027d"></script>
+<script src="js/blocks.js?v=20261027d"></script>
+<script src="js/content.js?v=20261027d"></script>
+<script src="js/missions.js?v=20261027d"></script>
+<script src="js/app.js?v=20261027d"></script>
 </body>
 </html>
