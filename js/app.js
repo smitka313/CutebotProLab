@@ -6,7 +6,7 @@ const { $, esc, bot, RT, devices } = L;
 
 let ws = null;
 const proj = { active: 'robot', programs: { robot: null, remote: null } };
-const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false };
+const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false, goalMin: false };
 const UISTORE = 'cutebotpro-lab-ui', PROOFS = 'cutebotpro-lab-proofs', LESSONSTORE = 'cutebotpro-lab-lessons', STUDENT = 'cutebotpro-lab-student', TURNED = 'cutebotpro-lab-turnedin';
 const PINDEX = 'cutebotpro-lab-projects', pkey = (id) => 'cutebotpro-lab-project-' + id;
 const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
@@ -598,7 +598,12 @@ function renderChallengeStrip(force) {
   // the goal sits on the arena until the run starts
   const showCard = !replayOf && s !== 'running' && s !== 'pass';
   card.hidden = !showCard;
-  if (showCard) card.innerHTML = `<span class="sec-label">Goal</span><b>${esc(ch.goal)}</b><span class="gc-hint">${s === 'ready' ? 'Write your program, then press Run.' : 'Change your program and press Run to try again.'}</span>`;
+  card.classList.toggle('min', ui.goalMin);
+  // the goal can be folded into a small tab so it doesn't cover the robot; the choice is remembered
+  if (showCard) card.innerHTML = ui.goalMin
+    ? `<button class="gc-toggle" id="gcToggle" aria-expanded="false" title="Show the goal">Goal ▾</button>`
+    : `<div class="gc-head"><span class="sec-label">Goal</span><button class="gc-toggle" id="gcToggle" aria-expanded="true" title="Hide the goal so you can see the robot">Hide ▴</button></div><b>${esc(ch.goal)}</b><span class="gc-hint">${s === 'ready' ? 'Write your program, then press Run.' : 'Change your program and press Run to try again.'}</span>`;
+  if (showCard) $('gcToggle').onclick = () => { ui.goalMin = !ui.goalMin; writeJSON(UISTORE, ui); renderChallengeStrip(true); };
 }
 function renderChallengeList() {
   const row = (ch) => {
