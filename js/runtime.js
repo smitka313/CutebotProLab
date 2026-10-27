@@ -114,6 +114,8 @@ const E = {
   BeatFraction: Object.fromEntries(L.BEATS.map(b => [b[1], b[2]])),
   Dimension: { X: 0, Y: 1, Z: 2, Strength: 3 },
   DetectedSound: { Loud: 'loud', Quiet: 'quiet' },
+  NeoPixelMode: { RGB: 0, RGBW: 1, RGB_RGB: 2 },
+  NeoPixelColors: Object.fromEntries(L.NP_COLORS.map(c => [c[1], c[2]])),
   SoundThreshold: { Loud: 'loud', Quiet: 'quiet' },
   DigitalPin: { P0: 0, P1: 1, P2: 2, P8: 8, P12: 12, P13: 13, P14: 14, P15: 15, P16: 16 },
   // enums from the pxt-cutebot-pro extension (global in MakeCode, like these)
@@ -139,6 +141,11 @@ const E = {
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, +v || 0));
 const toHex = (n) => '#' + (Math.max(0, Math.min(0xffffff, Math.round(+n) || 0))).toString(16).padStart(6, '0');
 const map = (v, a, b, c, d) => (v - a) * (d - c) / (b - a) + c;
+function hsl(h, s, l) {
+  h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+  const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  return (f(0) << 16) | (f(8) << 8) | f(4);
+}
 const degPerCm = () => 360 / (Math.PI * L.WHEEL_D);
 
 function makeApi(dev) {
@@ -304,7 +311,24 @@ function makeApi(dev) {
   }
   // runs before every block: remembers the block (for error messages) and lights it up in the editor
   const __hl = async (id) => { check(); dev.lastBlock = id; if (!RT.fast) RT.hits.set(id, performance.now()); };
-  return { ...E, __hl, basic, loops, input, music, led, radio, serial, CutebotPro };
+  // the Cutebot Pro's 2 rainbow LEDs: NeoPixels on P15, under the left and right sides (pxt-neopixel)
+  const neopixel = {
+    create(pin, numleds) {
+      const real = isRobot && pin === 15;
+      return {
+        buf: new Array(Math.max(1, Math.round(numleds) || 1)).fill(0), bright: 128,
+        show() { if (real) { bot.under = [this.buf[0] || 0, this.buf[1] || 0]; bot.underBright = this.bright; } },
+        showColor(rgb) { this.buf.fill((+rgb || 0) & 0xffffff); this.show(); },
+        setPixelColor(i, rgb) { i = Math.round(i); if (i >= 0 && i < this.buf.length) this.buf[i] = (+rgb || 0) & 0xffffff; },
+        clear() { this.buf.fill(0); },
+        setBrightness(b) { this.bright = clamp(b, 0, 255); },
+        showRainbow(s = 1, e = 360) { const n = this.buf.length; for (let i = 0; i < n; i++) this.buf[i] = hsl(s + (e - s) * i / n, 100, 50); this.show(); }
+      };
+    },
+    colors: (c) => +c || 0,
+    rgb: (r, g, b) => (clamp(r, 0, 255) << 16) | (clamp(g, 0, 255) << 8) | clamp(b, 0, 255)
+  };
+  return { ...E, __hl, basic, loops, input, music, led, radio, serial, CutebotPro, neopixel };
 }
 L.API_NAMES = Object.keys(makeApi(makeDevice('x', 'x')));
 
@@ -399,7 +423,7 @@ L.runAll = function (codes, opts = {}) {
   S.init = { robot: { env: { ...devices.robot.env }, accel: { ...devices.robot.accel } }, remote: { env: { ...devices.remote.env }, accel: { ...devices.remote.accel } } };
   bot.clock = 0; bot.bumpT = -1e9;
   RT.running = true; RT.fast = !!opts.fast; RT.ticks = 0;
-  bot.lights = ['#000000', '#000000']; bot.extMotor = 0; bot.spin = [0, 0, 0, 0]; bot.wl = bot.wr = 0;
+  bot.lights = ['#000000', '#000000']; bot.under = [0, 0]; bot.extMotor = 0; bot.spin = [0, 0, 0, 0]; bot.wl = bot.wr = 0;
   L.real.active = opts.real !== undefined ? !!opts.real : L.real.on;
   if (L.real.active) { const g = 0.9 + L.rand() * 0.07; if (L.rand() < .5) { L.real.gainL = 1; L.real.gainR = g; } else { L.real.gainL = g; L.real.gainR = 1; } }
   else { L.real.gainL = L.real.gainR = 1; }

@@ -144,7 +144,15 @@ L.BLOCKS = [
   stmt('cb_servo', 'set %1 servo %2 angle to %3 °', [dd('TYPE', [['180°', 'Servo180'], ['270°', 'Servo270'], ['360°', 'Servo360']]), dd('SERVO', servoOpts), num('ANGLE')], C.cute, 'Turn a servo on an expansion port to an angle'),
   stmt('cb_cservo', 'set continuous servo %1 speed to %2 %%', [dd('SERVO', servoOpts), num('SPEED')], C.cute, 'Spin a continuous servo, -100 to 100%'),
   stmt('cb_ext_motor', 'set motor speed to %1 %%', [num('SPEED')], C.cute, 'A motor on the expansion port, -100 to 100%'),
-  stmt('cb_ext_stop', 'stop motor', [], C.cute, 'Stop the expansion port motor')
+  stmt('cb_ext_stop', 'stop motor', [], C.cute, 'Stop the expansion port motor'),
+  stmt('np_show_color', 'rainbow LEDs show color %1', [{ type: 'input_value', name: 'COLOR', check: 'Number' }], C.cute, 'Light both rainbow LEDs under the robot (NeoPixels on P15)'),
+  stmt('np_set_pixel', 'rainbow LEDs set pixel %1 to %2', [num('I'), { type: 'input_value', name: 'COLOR', check: 'Number' }], C.cute, 'Pixel 0 or 1. Use “rainbow LEDs show” afterwards.'),
+  stmt('np_show', 'rainbow LEDs show', [], C.cute, 'Send the pixel colors to the LEDs'),
+  stmt('np_clear', 'rainbow LEDs clear', [], C.cute, 'Turn the rainbow LEDs off'),
+  stmt('np_brightness', 'rainbow LEDs set brightness %1', [num('B')], C.cute, 'Brightness from 0 to 255'),
+  stmt('np_rainbow', 'rainbow LEDs show rainbow', [], C.cute, 'Rainbow colors across the LEDs'),
+  val('np_color', '%1', [dd('C', L.NP_COLORS.map(c => [c[0], c[1]]))], C.cute, 'Number', 'A NeoPixel color'),
+  val('np_rgb', 'red %1 green %2 blue %3', [num('R'), num('G'), num('B')], C.cute, 'Number', 'Mix a color from 0-255 values')
 ];
 Blockly.common.defineBlocksWithJsonArray(L.BLOCKS);
 
@@ -153,7 +161,7 @@ Blockly.common.defineBlocksWithJsonArray(L.BLOCKS);
    MakeCode mode: plain MakeCode TypeScript to paste into makecode.microbit.org */
 const G = javascript.javascriptGenerator, O = javascript.Order;
 G.INDENT = '    ';
-G.addReservedWords(L.API_NAMES.join(',') + ',pins,control,Math,receivedNumber,receivedString,name,value');
+G.addReservedWords(L.API_NAMES.join(',') + ',pins,control,Math,strip,receivedNumber,receivedString,name,value');
 let TS = false;
 const AW = () => TS ? '' : 'await ';
 const FN = (params = '') => (TS ? 'function (' : 'async function (') + params + ')';
@@ -229,6 +237,15 @@ def('cb_servo', b => `CutebotPro.extendServoControl(ServoType.${F(b, 'TYPE')}, C
 def('cb_cservo', b => `CutebotPro.continuousServoControl(CutebotProServoIndex.${F(b, 'SERVO')}, ${V(b, 'SPEED')})\n`);
 def('cb_ext_motor', b => `CutebotPro.extendMotorControl(${V(b, 'SPEED')})\n`);
 def('cb_ext_stop', () => `CutebotPro.extendMotorStop()\n`);
+// rainbow LEDs: the pxt-neopixel strip on P15, declared once at the top of the program
+def('np_show_color', b => `strip.showColor(${V(b, 'COLOR', 'neopixel.colors(NeoPixelColors.Red)')})\n`);
+def('np_set_pixel', b => `strip.setPixelColor(${V(b, 'I')}, ${V(b, 'COLOR', 'neopixel.colors(NeoPixelColors.Red)')})\n`);
+def('np_show', () => `strip.show()\n`);
+def('np_clear', () => `strip.clear()\nstrip.show()\n`);
+def('np_brightness', b => `strip.setBrightness(${V(b, 'B', '128')})\n`);
+def('np_rainbow', () => `strip.showRainbow(1, 360)\n`);
+def('np_color', b => call(`neopixel.colors(NeoPixelColors.${F(b, 'C')})`));
+def('np_rgb', b => call(`neopixel.rgb(${V(b, 'R')}, ${V(b, 'G')}, ${V(b, 'B')})`));
 // MakeCode-flavoured versions of Blockly built-ins
 def('math_random_int', b => call(`randint(${V(b, 'FROM')}, ${V(b, 'TO')})`));
 def('text', b => [JSON.stringify(F(b, 'TEXT')), O.ATOMIC]);
@@ -276,14 +293,16 @@ L.generate = function (ws, ts) {
       case 'procedures_defnoreturn': case 'procedures_defreturn': G.blockToCode(b); break;
     }
   }
-  // MakeCode declares variables first, then event handlers, then "on start" code, then forever loops
+  const usesStrip = ws.getAllBlocks(false).some(b => b.isEnabled() && /^np_(show|set|clear|bright|rainbow)/.test(b.type) && HATS.has(b.getRootBlock().type));
+  // MakeCode declares the strip and variables first, then event handlers, then "on start" code, then forever loops
+  const pre = usesStrip ? 'let strip = neopixel.create(DigitalPin.P15, 2, NeoPixelMode.RGB)\n' : '';
   const types = {};
   for (const b of ws.getAllBlocks(false)) {
     if (b.type !== 'variables_set') continue;
     const n = G.getVariableName(F(b, 'VAR'));
     if (!types[n]) types[n] = valueType(b.getInputTargetBlock('VALUE'));
   }
-  let code = G.finish([...events, ...start, ...forevers].join(''));
+  let code = G.finish(pre + [...events, ...start, ...forevers].join(''));
   const procs = Blockly.Procedures.allProcedures(ws).flat().map(p => G.getProcedureName(p[0]));
   if (ts) {
     code = code.replace(/^var (.+);$/m, (m, names) => names.split(', ').map(n => `let ${n} = ${INIT[types[n] || 'number']}`).join('\n'))
@@ -322,6 +341,7 @@ L.updateOrphans = function (ws) {
 /* ---------- toolbox ---------- */
 const sh = (v) => ({ shadow: { type: 'math_number', fields: { NUM: v } } });
 const shText = (t) => ({ shadow: { type: 'text', fields: { TEXT: t } } });
+const npc = (c) => ({ shadow: { type: 'np_color', fields: { C: c } } });
 L.makeToolbox = function (devId) {
   const cats = [
     { kind: 'category', name: 'Basic', colour: C.basic, contents: [
@@ -367,7 +387,13 @@ L.makeToolbox = function (devId) {
       { kind: 'block', type: 'cb_ir_on' }, { kind: 'block', type: 'cb_ir_button' },
       { kind: 'label', text: 'Expansion port' },
       { kind: 'block', type: 'cb_servo', inputs: { ANGLE: sh(90) } }, { kind: 'block', type: 'cb_cservo', inputs: { SPEED: sh(50) } },
-      { kind: 'block', type: 'cb_ext_motor', inputs: { SPEED: sh(50) } }, { kind: 'block', type: 'cb_ext_stop' } ] },
+      { kind: 'block', type: 'cb_ext_motor', inputs: { SPEED: sh(50) } }, { kind: 'block', type: 'cb_ext_stop' },
+      { kind: 'label', text: 'Rainbow LEDs (2 NeoPixels on P15)' },
+      { kind: 'block', type: 'np_show_color', inputs: { COLOR: npc('Red') } },
+      { kind: 'block', type: 'np_set_pixel', inputs: { I: sh(0), COLOR: npc('Blue') } },
+      { kind: 'block', type: 'np_show' }, { kind: 'block', type: 'np_clear' }, { kind: 'block', type: 'np_rainbow' },
+      { kind: 'block', type: 'np_brightness', inputs: { B: sh(128) } },
+      { kind: 'block', type: 'np_color' }, { kind: 'block', type: 'np_rgb', inputs: { R: sh(255), G: sh(255), B: sh(255) } } ] },
     { kind: 'category', name: 'Radio', colour: C.radio, contents: [
       { kind: 'block', type: 'radio_set_group', inputs: { GROUP: sh(1) } },
       { kind: 'block', type: 'radio_send_number', inputs: { NUM: sh(0) } },

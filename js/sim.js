@@ -11,7 +11,7 @@ let W = L.W, H = L.H;
 // track: the 4-way line sensor as the extension's state value (bit 0 = channel 1, set = sees the black line).
 // wl/wr: how far each wheel has turned (cm), which is what the encoders count.
 const bot = L.bot = { x: 60, y: 40, a: 0, vl: 0, vr: 0, cmdL: 0, cmdR: 0, pid: false, pidL: 0, pidR: 0, ctrl: null, wl: 0, wr: 0,
-  lights: ['#000000', '#000000'], servo: [90, 90, 90, 90], servoT: [90, 90, 90, 90], spin: [0, 0, 0, 0], extMotor: 0, bumpT: -1e9, bumps: 0, track: 0, sonar: 0, odo: 0, turn: 0, clock: 0 };
+  lights: ['#000000', '#000000'], under: [0, 0], underBright: 128, servo: [90, 90, 90, 90], servoT: [90, 90, 90, 90], spin: [0, 0, 0, 0], extMotor: 0, bumpT: -1e9, bumps: 0, track: 0, sonar: 0, odo: 0, turn: 0, clock: 0 };
 // on = the viewer's setting; active = what the current run uses (fixed when Run is pressed)
 L.real = { on: false, active: false, gainL: 1, gainR: 1, deadband: 15 };
 
@@ -347,6 +347,9 @@ function drawRobot(c) {
   const disp = L.devices ? L.devices.robot.display : new Float32Array(25);
   c.save();
   c.translate(bot.x, bot.y); c.rotate(bot.a);
+  // rainbow LEDs: a glow on the floor under each side (pixel 0 on the left, pixel 1 on the right)
+  const ub = bot.underBright / 255;
+  [[-5.2, 0], [5.2, 1]].forEach(([ux, i]) => { const col = bot.under[i]; if (!col) return; glow(c, ux, 0, [col >> 16, (col >> 8) & 255, col & 255], .35 + .5 * ub, 7 + 3 * ub); });
   // headlight beams
   [[-2.9, 1], [2.9, 0]].forEach(([lx, idx]) => {
     const col = bot.lights[idx]; if (col === '#000000') return;

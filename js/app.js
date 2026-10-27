@@ -182,7 +182,7 @@ function openProjects() {
 
 /* ---------- code view ---------- */
 function highlight(code) {
-  return code.replace(/(\/\/.*$)|(`[^`]*`|"(?:\\.|[^"])*"|'(?:\\.|[^'])*')|\b(let|function|if|else|while|for|return|true|false|break|continue)\b|\b(basic|input|music|led|loops|CutebotPro|radio|serial)\b|\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b|([^/`"'\w]+|\w+|.)/gm,
+  return code.replace(/(\/\/.*$)|(`[^`]*`|"(?:\\.|[^"])*"|'(?:\\.|[^'])*')|\b(let|function|if|else|while|for|return|true|false|break|continue)\b|\b(basic|input|music|led|loops|CutebotPro|radio|serial|neopixel|strip)\b|\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b|([^/`"'\w]+|\w+|.)/gm,
     (m, com, str, key, ns, num, other) => com ? `<span class="tk-com">${esc(com)}</span>` : str ? `<span class="tk-str">${esc(str)}</span>` : key ? `<span class="tk-key">${key}</span>` : ns ? `<span class="tk-ns">${ns}</span>` : num ? `<span class="tk-num">${num}</span>` : esc(other));
 }
 function refreshCode() {
@@ -204,7 +204,7 @@ const KEYWORDS = {
   cb_speed: 'encoder wheel speed measure', cb_degrees: 'encoder wheel rotation degrees distance odometer measure', cb_clear_deg: 'encoder reset clear',
   cb_stop: 'stop brake halt', cb_sonar: 'distance ultrasonic sonar obstacle', cb_tracking: 'line follow sensor track 4-way',
   cb_track_read: 'line follow sensor track read', cb_track_ch: 'line sensor channel track', cb_track_gray: 'line sensor gray grey brightness', cb_offset: 'line follow offset position',
-  cb_headlights: 'light led color headlight', cb_headlights_rgb: 'light led color headlight rgb', cb_servo: 'servo expansion arm', cb_cservo: 'servo continuous spin', cb_ext_motor: 'expansion motor',
+  cb_headlights: 'light led color headlight', cb_headlights_rgb: 'light led color headlight rgb', cb_servo: 'servo expansion arm', cb_cservo: 'servo continuous spin', cb_ext_motor: 'expansion motor', np_show_color: 'rainbow neopixel led light underglow color', np_set_pixel: 'rainbow neopixel led pixel', np_rainbow: 'rainbow neopixel led', np_clear: 'rainbow neopixel led off', np_brightness: 'rainbow neopixel brightness',
   cb_ir_on: 'infrared remote ir', cb_ir_button: 'infrared remote ir', mb_on_sound: 'sound microphone loud clap noise', mb_sound_level: 'sound microphone level noise', mb_sound_threshold: 'sound microphone threshold loud', mb_pause: 'wait delay sleep', mb_on_button: 'button press', radio_send_number: 'radio send', mb_play_tone: 'sound music note beep'
 };
 const searchIndex = {};
@@ -279,7 +279,7 @@ function run() {
 function resetAll(keepChallenge) {
   L.stopAll();
   Object.values(devices).forEach(d => d.display.fill(0));
-  bot.lights = ['#000000', '#000000']; resetServos(); bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
+  bot.lights = ['#000000', '#000000']; bot.under = [0, 0]; resetServos(); bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
   L.placeRobot();
   hideError();
   if (challenge && !keepChallenge) { crun = L.makeChallengeRun(challenge); if (challenge.setup) challenge.setup(crun.st); replayOf = null; renderChallengeStrip(true); }
@@ -527,7 +527,7 @@ function enterArena(ch) {
   setMap(ch.map, true);
   L.stopAll();
   Object.values(devices).forEach(d => d.display.fill(0));
-  bot.lights = ['#000000', '#000000']; resetServos(); bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
+  bot.lights = ['#000000', '#000000']; bot.under = [0, 0]; resetServos(); bot.spin = [0, 0, 0, 0]; bot.extMotor = 0;
   L.placeRobot();
   // the big V2X fields start zoomed in, following the robot, so it isn't tiny
   if (L.W > 150) { Object.assign(L.view, { zoom: 2.25, follow: true, cx: bot.x, cy: bot.y }); L.emit('change', 'view'); }
@@ -877,7 +877,7 @@ function openSend() {
   const robotCode = genTS('robot'), remote = hasCode('remote') ? genTS('remote') : null;
   modal('Run this on a real Cutebot Pro', `<ol>
       <li>Open <a href="https://makecode.microbit.org/" target="_blank" rel="noopener">makecode.microbit.org</a> and create a new project.</li>
-      <li>Click <b>Extensions</b> at the bottom of the block list, search for <b>cutebot pro</b>, and add the ELECFREAKS <b>Cutebot Pro</b> extension (pxt-cutebot-pro). If search doesn’t find it, paste <b>https://github.com/elecfreaks/pxt-Cutebot-Pro</b> into the search box.</li>
+      <li>Click <b>Extensions</b> at the bottom of the block list, search for <b>cutebot pro</b>, and add the ELECFREAKS <b>Cutebot Pro</b> extension (pxt-cutebot-pro). It brings the NeoPixel blocks for the rainbow LEDs with it. If search doesn’t find it, paste <b>https://github.com/elecfreaks/pxt-Cutebot-Pro</b> into the search box.</li>
       <li>Switch to <b>JavaScript</b>, select all the code there, and paste this code over it.</li>
       <li>Switch back to <b>Blocks</b> to check it, then click <b>Download</b> and copy the file to the micro:bit in the Cutebot Pro.</li></ol>
     <div class="code-head"><b>Cutebot Pro micro:bit</b><span><button class="btn small" id="cpRobot">Copy</button><button class="btn small" id="dlRobot">Download .txt</button></span></div>

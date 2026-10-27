@@ -59,6 +59,9 @@ L.NOTES = [['Middle C','C',262],['Middle C#','CSharp',277],['Middle D','D',294],
   ['Low C','C3',131],['Low E','E3',165],['Low G','G3',196],['Low A','A3',220]];
 L.BEATS = [['1','Whole',1],['1/2','Half',.5],['1/4','Quarter',.25],['1/8','Eighth',.125],['1/16','Sixteenth',.0625],['2','Double',2],['4','Breve',4]];
 L.COLORS = [['red','0xff0000'],['orange','0xffa500'],['yellow','0xffff00'],['green','0x00ff00'],['blue','0x0000ff'],['indigo','0x4b0082'],['violet','0x8a2be2'],['purple','0xff00ff'],['white','0xffffff'],['off (black)','0x000000']];
+// NeoPixel colours from the pxt-neopixel extension that the Cutebot Pro extension depends on
+L.NP_COLORS = [['red','Red',0xFF0000],['orange','Orange',0xFFA500],['yellow','Yellow',0xFFFF00],['green','Green',0x00FF00],['blue','Blue',0x0000FF],
+  ['indigo','Indigo',0x4b0082],['violet','Violet',0x8a2be2],['purple','Purple',0xFF00FF],['white','White',0xFFFFFF],['black','Black',0x000000]];
 // TrackbitStateType: [label, enum member, state value]. ● = that channel sees the black line; channel 1 is on the left.
 L.TRACK_STATES = [['◌ ◌ ◌ ◌','Tracking_State_0',0],['◌ ● ● ◌','Tracking_State_1',6],['◌ ◌ ● ◌','Tracking_State_2',4],['◌ ● ◌ ◌','Tracking_State_3',2],
   ['● ◌ ◌ ●','Tracking_State_4',9],['● ● ● ●','Tracking_State_5',15],['● ◌ ● ●','Tracking_State_6',13],['● ● ◌ ●','Tracking_State_7',11],
