@@ -55,6 +55,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
   padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; white-space: nowrap; }
 .brand svg { width: 30px; height: 30px; }
+.sq1 { display: inline-flex; align-items: center; background: #fff; border-radius: 8px; padding: 3px 8px; line-height: 0; }
+.sq1 img { height: 26px; width: auto; display: block; }
+.ch-group .sq1-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ch-group .sq1-row img { height: 30px; width: auto; background: #fff; border-radius: 6px; padding: 3px 7px; box-sizing: content-box; }
+@media (max-width: 520px) { .sq1 img { height: 20px; } }
 .seg { display: inline-flex; background: rgba(255,255,255,.08); border-radius: 999px; padding: 3px; }
 .seg button { border: 0; background: transparent; color: var(--head-muted); padding: 6px 14px; border-radius: 999px; cursor: pointer; font-weight: 500; }
 .seg button[aria-pressed="true"] { background: var(--head-ink); color: var(--head); }
@@ -404,6 +409,7 @@ a.btn { text-decoration: none; }
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="5" fill="#00a3a3"/><rect x="2" y="10" width="4" height="12" rx="2" fill="#e9efea"/><rect x="26" y="10" width="4" height="12" rx="2" fill="#e9efea"/><circle cx="12" cy="13" r="2.6" fill="#18211c"/><circle cx="20" cy="13" r="2.6" fill="#18211c"/><rect x="11" y="18.5" width="10" height="2.5" rx="1.2" fill="#18211c"/></svg>
       <span>Cutebot Pro Code Lab</span>
     </div>
+    <a class="sq1" href="https://www.squareonenetwork.org" target="_blank" rel="noopener" title="Practice for Square One Education Network V2X teams (independent practice tool, not made by Square One)"><img src="media/squareone-logo.png" alt="Square One Education Network"></a>
     <div class="seg" role="group" aria-label="Editor view">
       <button id="tabBlocks" aria-pressed="true">Blocks</button>
       <button id="tabJs" aria-pressed="false">JavaScript</button>
@@ -680,13 +686,13 @@ a.btn { text-decoration: none; }
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
 <script src="vendor/lzma/lzma_worker-min.js"></script>
-<script src="js/data.js?v=20261028a"></script>
-<script src="js/sim.js?v=20261028a"></script>
-<script src="js/runtime.js?v=20261028a"></script>
-<script src="js/blocks.js?v=20261028a"></script>
-<script src="js/content.js?v=20261028a"></script>
-<script src="js/missions.js?v=20261028a"></script>
-<script src="js/huskylens.js?v=20261028a"></script>
-<script src="js/app.js?v=20261028a"></script>
+<script src="js/data.js?v=20261028b"></script>
+<script src="js/sim.js?v=20261028b"></script>
+<script src="js/runtime.js?v=20261028b"></script>
+<script src="js/blocks.js?v=20261028b"></script>
+<script src="js/content.js?v=20261028b"></script>
+<script src="js/missions.js?v=20261028b"></script>
+<script src="js/huskylens.js?v=20261028b"></script>
+<script src="js/app.js?v=20261028b"></script>
 </body>
 </html>

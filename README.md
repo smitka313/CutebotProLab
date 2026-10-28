@@ -1,5 +1,9 @@
 # Cutebot Pro Code Lab: Student Instructions
 
+<img src="media/squareone-logo.png" alt="Square One Education Network" height="50">
+
+Practice for Square One Education Network V2X teams. This lab is an independent practice tool, not an official Square One product; the Square One name and logo belong to Square One Education Network.
+
 Cutebot Pro Code Lab is a website where you program a micro:bit with blocks and test your code on a virtual Cutebot Pro robot before you try it on a real one.
 
 **Open the lab:** https://smitka313.github.io/CutebotProLab/

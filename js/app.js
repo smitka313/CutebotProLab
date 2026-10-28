@@ -675,7 +675,7 @@ function renderChallengeList() {
   };
   const plain = L.CHALLENGES.filter(c => c.group !== 'v2x'), v2x = L.CHALLENGES.filter(c => c.group === 'v2x');
   $('chList').innerHTML = plain.map(row).join('') +
-    `<li class="ch-group"><span class="sec-label">V2X Senior missions 2026-27</span><p class="note">Practice versions of the Square One V2X IVD tasks, on fields sized from the parameters. Scores follow each rubric but are practice scores: on the real field, the judges decide. Golf (Innovative Mobility Exhibition) has an open 4 × 8 ft space in the arena list.</p></li>` +
+    `<li class="ch-group"><div class="sq1-row"><img src="media/squareone-logo.png" alt="Square One Education Network"><span class="sec-label">V2X Senior missions 2026-27</span></div><p class="note">Practice versions of the Square One V2X IVD tasks, on fields sized from the parameters. Scores follow each rubric but are practice scores: on the real field, the judges decide. Golf (Innovative Mobility Exhibition) has an open 4 × 8 ft space in the arena list.</p><p class="note">An independent practice tool for Square One teams, not an official Square One Education Network product. The Square One name and logo belong to Square One Education Network.</p></li>` +
     v2x.map(row).join('');
   $('chList').querySelectorAll('button[data-ch]').forEach(b => b.onclick = () => armChallenge(b.dataset.ch));
   const pend = notTurnedIn().length;
