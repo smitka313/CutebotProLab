@@ -922,26 +922,67 @@ function renderTour() {
 }
 
 /* ---------- send to real robot ---------- */
+/* ---------- open in MakeCode ----------
+   MakeCode opens a project carried in its own link: makecode.microbit.org/#project:<base64 of an LZMA-compressed
+   project file> (see "project" in pxt's webapp/src/app.tsx). The project lists the extensions the code needs and an
+   empty main.blocks, so MakeCode turns the JavaScript into blocks when it opens. Nothing is uploaded anywhere. */
+const MAKECODE = 'https://makecode.microbit.org/';
+const EXT = {
+  cutebotpro: ['pxt-cutebotpro', 'github:elecfreaks/pxt-cutebot-pro#v2.1.2'],
+  neopixel: ['neopixel', 'github:elecfreaks/pxt-neopixel#v0.6.21'],      // the version the Cutebot Pro extension uses
+  husky: ['Huskylens', 'github:DFRobot/pxt-DFRobot_HuskyLens#v2.0.7']
+};
+function makecodeProject(name, code, robot) {
+  const deps = { core: '*', radio: '*', microphone: '*' };
+  if (robot) {
+    deps[EXT.cutebotpro[0]] = EXT.cutebotpro[1];
+    if (/\bneopixel\./.test(code)) deps[EXT.neopixel[0]] = EXT.neopixel[1];
+    if (/\bhuskylens\./.test(code)) deps[EXT.husky[0]] = EXT.husky[1];
+  }
+  const files = {
+    'main.blocks': '', 'main.ts': code, 'README.md': ' ',
+    'pxt.json': JSON.stringify({ name, description: 'Made with Cutebot Pro Code Lab', dependencies: deps, files: ['main.blocks', 'main.ts', 'README.md'], preferredEditor: 'blocksprj' }, null, 4)
+  };
+  return { meta: { cloudId: 'pxt/microbit', editor: 'blocksprj', name }, source: JSON.stringify(files, null, 2) };
+}
+function makecodeLinkAsync(name, code, robot) {
+  return new Promise((resolve, reject) => {
+    const lz = window.LZMA; if (!lz) return reject(new Error('LZMA library missing'));
+    lz.compress(JSON.stringify(makecodeProject(name, code, robot), null, 2), 7, (res, err) => {
+      if (err || !res) return reject(err || new Error('compress failed'));
+      let bin = ''; for (const b of res) bin += String.fromCharCode(b & 255);
+      resolve(MAKECODE + '#project:' + btoa(bin));
+    });
+  });
+}
 function openSend() {
-  const robotCode = genTS('robot'), remote = hasCode('remote') ? genTS('remote') : null;
-  modal('Run this on a real Cutebot Pro', `<ol>
-      <li>Open <a href="https://makecode.microbit.org/" target="_blank" rel="noopener">makecode.microbit.org</a> and create a new project.</li>
-      <li>Click <b>Extensions</b> at the bottom of the block list, search for <b>cutebot pro</b>, and add the ELECFREAKS <b>Cutebot Pro</b> extension (pxt-cutebot-pro). It brings the NeoPixel blocks for the rainbow LEDs with it. If search doesn’t find it, paste <b>https://github.com/elecfreaks/pxt-Cutebot-Pro</b> into the search box.</li>
-      ${/huskylens\./.test(robotCode) ? '<li>Your code uses the HuskyLens: also add the DFRobot <b>HuskyLens</b> extension (search for <b>huskylens</b>).</li>' : ''}
-      <li>Switch to <b>JavaScript</b>, select all the code there, and paste this code over it.</li>
-      <li>Switch back to <b>Blocks</b> to check it, then click <b>Download</b> and copy the file to the micro:bit in the Cutebot Pro.</li></ol>
+  const robotCode = genTS('robot'), remote = hasCode('remote') ? genTS('remote') : null, name = $('projName').value || 'Cutebot Pro';
+  modal('Run this on a real Cutebot Pro', `<p class="note big" style="padding:0">Opens MakeCode in a new tab with your program and the extensions it needs already added: Cutebot Pro${/\bneopixel\./.test(robotCode) ? ', NeoPixel' : ''}${/\bhuskylens\./.test(robotCode) ? ', HuskyLens' : ''}.</p>
+    <div class="row-actions"><a class="btn run" id="mcRobot" target="_blank" rel="noopener" aria-disabled="true">Preparing…</a>
+    ${remote ? `<a class="btn" id="mcRemote" target="_blank" rel="noopener" aria-disabled="true">Preparing…</a>` : ''}</div>
+    <ol>
+      <li>In the new tab, wait for MakeCode to load your blocks. The first time, it takes a few seconds to fetch the extensions.</li>
+      <li>Plug the micro:bit in with a USB cable. Click the <b>…</b> next to <b>Download</b>, choose <b>Connect device</b>, and pick your micro:bit. After that, <b>Download</b> sends the program straight to it.</li>
+      <li>Or click <b>Download</b> to save a .hex file and drag it onto the <b>MICROBIT</b> drive.</li></ol>
+    ${remote ? '<p class="note">The Remote micro:bit opens as a second MakeCode project. Flash it to the micro:bit you hold.</p>' : ''}
+    <details><summary class="note">If the button doesn’t work: copy the code instead</summary>
+    <p class="note">Open <a href="${MAKECODE}" target="_blank" rel="noopener">makecode.microbit.org</a>, start a new project, add the <b>Cutebot Pro</b> extension (search <b>cutebot pro</b>)${/huskylens\./.test(robotCode) ? ' and the DFRobot <b>HuskyLens</b> extension' : ''}, switch to <b>JavaScript</b>, and paste this over the code there.</p>
     <div class="code-head"><b>Cutebot Pro micro:bit</b><span><button class="btn small" id="cpRobot">Copy</button><button class="btn small" id="dlRobot">Download .txt</button></span></div>
     <textarea id="tsRobot" spellcheck="false" aria-label="Cutebot Pro micro:bit code" readonly></textarea>
     ${remote ? `<div class="code-head"><b>Remote micro:bit</b><span><button class="btn small" id="cpRemote">Copy</button><button class="btn small" id="dlRemote">Download .txt</button></span></div>
-    <p class="note">Make a second MakeCode project for the micro:bit you hold. It needs no extension.</p>
-    <textarea id="tsRemote" spellcheck="false" aria-label="Remote micro:bit code" readonly></textarea>` : ''}
+    <textarea id="tsRemote" spellcheck="false" aria-label="Remote micro:bit code" readonly></textarea>` : ''}</details>
     <p class="note">Cutebot Pro guide: <a href="https://wiki.elecfreaks.com/en/microbit/microbit-smart-car/microbit-smart-cutebot-pro/" target="_blank" rel="noopener">ELECFREAKS wiki</a></p>`,
     [['Close', () => {}]], true);
+  const ready = (id, label) => (url) => { const a = $(id); if (!a) return; a.href = url; a.textContent = label; a.removeAttribute('aria-disabled'); };
+  const failed = (id) => () => { const a = $(id); if (a) { a.textContent = 'Can’t open MakeCode: copy the code below'; a.removeAttribute('href'); } };
+  makecodeLinkAsync(name, robotCode, true).then(ready('mcRobot', 'Open in MakeCode'), failed('mcRobot'));
+  if (remote) makecodeLinkAsync(name + ' remote', remote, false).then(ready('mcRemote', 'Open the Remote in MakeCode'), failed('mcRemote'));
   $('tsRobot').value = robotCode;
   $('cpRobot').onclick = () => copyText(robotCode, $('tsRobot'));
   $('dlRobot').onclick = () => saveFile(safeName($('projName').value) + ' - cutebot-pro.txt', robotCode);
   if (remote) { $('tsRemote').value = remote; $('cpRemote').onclick = () => copyText(remote, $('tsRemote')); $('dlRemote').onclick = () => saveFile(safeName($('projName').value) + ' - remote.txt', remote); }
 }
+L.makecodeLinkAsync = makecodeLinkAsync;
 
 /* ---------- code for judges ----------
    V2X teams submit their code as a PDF with each video (rule 15.14), judged on clarity and comments.

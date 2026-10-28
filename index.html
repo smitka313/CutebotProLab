@@ -96,7 +96,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .simbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .btn { border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 8px; padding: 7px 11px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
 .btn:hover:not(:disabled) { border-color: var(--muted); }
-.btn:disabled { opacity: .45; cursor: default; }
+.btn:disabled, a.btn[aria-disabled="true"] { opacity: .45; cursor: default; pointer-events: none; }
+a.btn { text-decoration: none; }
 .btn.small { padding: 4px 9px; font-size: 12px; }
 .btn.icon { font-size: 17px; line-height: 1; padding: 4px 10px; }
 .btn svg { width: 14px; height: 14px; }
@@ -678,13 +679,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="vendor/blockly/blocks_compressed.js"></script>
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
-<script src="js/data.js?v=20261027l"></script>
-<script src="js/sim.js?v=20261027l"></script>
-<script src="js/runtime.js?v=20261027l"></script>
-<script src="js/blocks.js?v=20261027l"></script>
-<script src="js/content.js?v=20261027l"></script>
-<script src="js/missions.js?v=20261027l"></script>
-<script src="js/huskylens.js?v=20261027l"></script>
-<script src="js/app.js?v=20261027l"></script>
+<script src="vendor/lzma/lzma_worker-min.js"></script>
+<script src="js/data.js?v=20261028a"></script>
+<script src="js/sim.js?v=20261028a"></script>
+<script src="js/runtime.js?v=20261028a"></script>
+<script src="js/blocks.js?v=20261028a"></script>
+<script src="js/content.js?v=20261028a"></script>
+<script src="js/missions.js?v=20261028a"></script>
+<script src="js/huskylens.js?v=20261028a"></script>
+<script src="js/app.js?v=20261028a"></script>
 </body>
 </html>

@@ -128,5 +128,5 @@ Don't open or change the file before you upload it. Your teacher replays every c
 - **My program stopped with a red message.** Click **Show me the block** to find the block that caused it.
 - **The Download button did nothing.** Edge shows downloads in a box at the top right. If it asks, choose Keep. The file is also in your Downloads folder. You can also click **Copy as text**, paste it into a new file, and save it with the `.cutebotpro.json` ending.
 - **I need my code for a V2X submission.** The rules ask for your code as a PDF with each video. First add comments to your blocks (right-click a block, **Add Comment**). Then open **Menu → Code for judges**, fill in your team name, number and mission, and click **Print or save as PDF**. In the print window, choose **Save as PDF**.
-- **I want to try it on a real Cutebot Pro.** Click **Send to real Cutebot Pro** and follow the steps to open your code in MakeCode with the Cutebot Pro extension.
+- **I want to try it on a real Cutebot Pro.** Click **Send to real Cutebot Pro**, then **Open in MakeCode**. MakeCode opens in a new tab with your blocks and the extensions they need. Plug in the micro:bit, choose **Connect device** from the **…** next to **Download**, and **Download** sends the program straight to it.
 - **The lab looks out of date.** Press **Ctrl+F5** to load the newest version.
